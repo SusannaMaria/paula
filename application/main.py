@@ -31,7 +31,7 @@ from importer.importer_main import run_import
 from database.database_helper import clean_tables, close_connection
 
 # from updater.updater_main import run_update
-# from search.search_main import run_search
+from search.search_main import run_search
 
 
 def main():
@@ -53,8 +53,12 @@ def main():
     # update_parser = subparsers.add_parser("update", help="Update database using MusicBrainz.")
 
     # # Search Command
-    # search_parser = subparsers.add_parser("search", help="Search music in the database.")
-    # search_parser.add_argument("query", help="Search query (e.g., 'artist: Tool and genre: Rock').")
+    search_parser = subparsers.add_parser(
+        "search", help="Search music in the database."
+    )
+    search_parser.add_argument(
+        "query", help="Search query (e.g., 'artist: Tool and genre: Rock')."
+    )
 
     args = parser.parse_args()
 
@@ -64,8 +68,8 @@ def main():
             clean_tables()
         run_import(args.directory)
 
-    elif args.command == "update":
-        run_update()
+    # elif args.command == "update":
+    #     run_update()
     elif args.command == "search":
         run_search(args.query)
 

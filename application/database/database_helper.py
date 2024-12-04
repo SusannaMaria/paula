@@ -268,3 +268,20 @@ def insert_track(
         conn.rollback()
         print(f"Failed to insert track: {e}")
         sys.exit(1)
+
+
+def execute_query_print_out(sql_query, params):
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(sql_query, params)
+        results = cursor.fetchall()
+        for row in results:
+            print(
+                f"Title: {row[0]}, Artist: {row[1]}, Album: {row[2]}, Genre: {row[3]}"
+            )
+    except Exception as e:
+        print(f"Error executing query: {e}")
+    finally:
+        cursor.close()
+        conn.close()
