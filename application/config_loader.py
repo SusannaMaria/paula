@@ -27,6 +27,9 @@
 """
 
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 CONFIG_FILE = "config.json"
 
@@ -37,8 +40,8 @@ def load_config():
             config = json.load(file)
             return config
     except FileNotFoundError:
-        print(f"Error: Configuration file '{CONFIG_FILE}' not found.")
+        logger.error(f"Error: Configuration file '{CONFIG_FILE}' not found.")
         raise
     except json.JSONDecodeError as e:
-        print(f"Error decoding '{CONFIG_FILE}': {e}")
+        logger.error(f"Error decoding '{CONFIG_FILE}': {e}")
         raise

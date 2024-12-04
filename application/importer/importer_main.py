@@ -38,10 +38,13 @@ from database.database_helper import (
     insert_track,
     insert_tag,
 )
+import logging
+
 from config_loader import load_config
 
 # Load configuration
 config = load_config()
+logger = logging.getLogger(__name__)
 
 FIELD_MAP = {
     "artist": "artists.name",
@@ -57,7 +60,7 @@ def extract_valid_uuids(value):
         try:
             valid_uuids.append(str(uuid.UUID(part.strip())))
         except ValueError:
-            print(f"Invalid UUID found: {part.strip()}. Skipping.")
+            logger.error(f"Invalid UUID found: {part.strip()}. Skipping.")
     return valid_uuids
 
 
@@ -74,7 +77,7 @@ def get_tag(metadata, key, default=None):
 
 
 def process_audio_file(file_path):
-    print(f"Processing: {file_path}")
+    logger.info(f"Processing: {file_path}")
 
     # Determine file type and load metadata
     audio = None
@@ -96,7 +99,7 @@ def process_audio_file(file_path):
                     audio[tag][0] if isinstance(audio[tag], list) else audio[tag]
                 )
     else:
-        print(f"Unsupported file format: {file_path}")
+        logger.error(f"Unsupported file format: {file_path}")
         return
 
     # Extract metadata
@@ -139,14 +142,14 @@ def process_audio_file(file_path):
             # Convert to a valid date (default to January 1st)
             year = datetime.strptime(raw_year_str[:4], "%Y").date()
         except ValueError:
-            print(f"Invalid year format: {raw_year}. Skipping year.")
+            logger.error(f"Invalid year format: {raw_year}. Skipping year.")
 
     release_date = get_tag(metadata, "TXXX:originalyear")
     if release_date:
         try:
             release_date = datetime.strptime(release_date[:4], "%Y").date()
         except ValueError:
-            print(
+            logger.error(
                 f"Invalid release_date format: {release_date}. Skipping release_date."
             )
             release_date = None
@@ -218,9 +221,12 @@ def process_audio_file(file_path):
 
 
 def run_import(directory):
-    print(f"Starting import from directory: {directory}")
-    for root, _, files in os.walk(directory):
-        for file in files:
-            if file.lower().endswith((".mp3", ".flac")):
-                process_audio_file(os.path.join(root, file))
-    print("Import complete.")
+    logger.info(f"Starting import from directory: {directory}")
+    try:
+        for root, _, files in os.walk(directory):
+            for file in files:
+                if file.lower().endswith((".mp3", ".flac")):
+                    process_audio_file(os.path.join(root, file))
+        logger.info("Import complete")
+    except Exception as e:
+        logger.error(f"Error during import: {e}")

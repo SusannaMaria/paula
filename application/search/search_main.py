@@ -29,7 +29,9 @@
 import re
 from config_loader import load_config
 from database.database_helper import execute_query_print_out
+import logging
 
+logger = logging.getLogger(__name__)
 # Load configuration
 config = load_config()
 
@@ -79,8 +81,12 @@ def build_sql_query(conditions, logical_operator):
 
 
 def run_search(input_query):
-    conditions, logical_operator = parse_query(input_query)
-    sql_query, params = build_sql_query(conditions, logical_operator)
-    print(f"Generated SQL Query: {sql_query}")
-    print(f"Parameters: {params}")
-    execute_query_print_out(sql_query, params)
+    logger.info(f"Search initiated with query: {input_query}")
+    try:
+        conditions, logical_operator = parse_query(input_query)
+        sql_query, params = build_sql_query(conditions, logical_operator)
+        logger.info(f"Generated SQL Query: {sql_query}")
+        logger.info(f"Parameters: {params}")
+        execute_query_print_out(sql_query, params)
+    except Exception as e:
+        logger.error(f"Search failed: {e}")

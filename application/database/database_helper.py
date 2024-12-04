@@ -30,7 +30,9 @@ import sys
 from config_loader import load_config
 import psycopg2
 from psycopg2.extras import DictCursor
+import logging
 
+logger = logging.getLogger(__name__)
 
 # Load the configuration
 config = load_config()
@@ -49,7 +51,7 @@ def get_connection():
 
         return conn
     except Exception as e:
-        print(f"Error connecting to database: {e}")
+        logger.error(f"Error connecting to database: {e}")
         raise
 
 
@@ -64,10 +66,10 @@ def clean_tables():
     try:
         cursor.execute(query)
         conn.commit()
-        print("Database cleaned successfully.")
+        logger.info("Database cleaned successfully.")
     except Exception as e:
         conn.rollback()
-        print(f"Error cleaning database: {e}")
+        logger.error(f"Error cleaning database: {e}")
     finally:
         cursor.close()
 
@@ -119,10 +121,10 @@ def initialize_schema():
     try:
         cursor.execute(schema_sql)
         conn.commit()
-        print("Database schema initialized successfully.")
+        logger.info("Database schema initialized successfully.")
     except Exception as e:
         conn.rollback()
-        print(f"Error initializing schema: {e}")
+        logger.error(f"Error initializing schema: {e}")
     finally:
         cursor.close()
 
@@ -139,7 +141,7 @@ def insert_tag(track_id, key, value):
         conn.commit()
     except Exception as e:
         conn.rollback()
-        print(f"Failed to insert tag: {e}")
+        logger.error(f"Failed to insert tag: {e}")
 
 
 def insert_artist(name, musicbrainz_artist_id, is_musicbrainz_valid):
@@ -170,7 +172,7 @@ def insert_artist(name, musicbrainz_artist_id, is_musicbrainz_valid):
         return result[0] if result else None  # Return artist_id
     except Exception as e:
         conn.rollback()
-        print(f"Failed to insert artist: {e}")
+        logger.error(f"Failed to insert artist: {e}")
         sys.exit(1)
 
 
@@ -218,7 +220,7 @@ def insert_album(
         return result[0] if result else None  # Return album_id
     except Exception as e:
         conn.rollback()
-        print(f"Failed to insert album: {e}")
+        logger.error(f"Failed to insert album: {e}")
         sys.exit(1)
 
 
@@ -266,7 +268,7 @@ def insert_track(
         return result[0] if result else None
     except Exception as e:
         conn.rollback()
-        print(f"Failed to insert track: {e}")
+        logger.error(f"Failed to insert track: {e}")
         sys.exit(1)
 
 
@@ -281,7 +283,7 @@ def execute_query_print_out(sql_query, params):
                 f"Title: {row[0]}, Artist: {row[1]}, Album: {row[2]}, Genre: {row[3]}"
             )
     except Exception as e:
-        print(f"Error executing query: {e}")
+        logger.error(f"Error executing query: {e}")
     finally:
         cursor.close()
         conn.close()

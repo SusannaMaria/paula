@@ -26,54 +26,73 @@
     THE SOFTWARE.
 """
 
+import sys
+
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
+
 import argparse
 from importer.importer_main import run_import
 from database.database_helper import clean_tables, close_connection
+from logging_config import setup_logging
+import logging
 
 # from updater.updater_main import run_update
 from search.search_main import run_search
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Music Database Manager")
-    subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # Import Command
-    import_parser = subparsers.add_parser(
-        "import", help="Import metadata from audio files."
-    )
-    import_parser.add_argument(
-        "directory", help="Directory containing audio files to import."
-    )
-    import_parser.add_argument(
-        "--clean", action="store_true", help="Clean the database before import."
-    )
+    setup_logging()
+    logger = logging.getLogger(__name__)
 
-    # # Update Command
-    # update_parser = subparsers.add_parser("update", help="Update database using MusicBrainz.")
+    try:
+        logger.info("Application started")
+        # Existing application logic...
 
-    # # Search Command
-    search_parser = subparsers.add_parser(
-        "search", help="Search music in the database."
-    )
-    search_parser.add_argument(
-        "query", help="Search query (e.g., 'artist: Tool and genre: Rock')."
-    )
+        parser = argparse.ArgumentParser(description="Music Database Manager")
+        subparsers = parser.add_subparsers(dest="command", required=True)
 
-    args = parser.parse_args()
+        # Import Command
+        import_parser = subparsers.add_parser(
+            "import", help="Import metadata from audio files."
+        )
+        import_parser.add_argument(
+            "directory", help="Directory containing audio files to import."
+        )
+        import_parser.add_argument(
+            "--clean", action="store_true", help="Clean the database before import."
+        )
 
-    if args.command == "import":
-        if args.clean:
-            print("Cleaning the database...")
-            clean_tables()
-        run_import(args.directory)
+        # # Update Command
+        # update_parser = subparsers.add_parser("update", help="Update database using MusicBrainz.")
 
-    # elif args.command == "update":
-    #     run_update()
-    elif args.command == "search":
-        run_search(args.query)
+        # # Search Command
+        search_parser = subparsers.add_parser(
+            "search", help="Search music in the database."
+        )
+        search_parser.add_argument(
+            "query", help="Search query (e.g., 'artist: Tool and genre: Rock')."
+        )
 
-    close_connection()
+        args = parser.parse_args()
+
+        if args.command == "import":
+            if args.clean:
+                logger.info("Cleaning the database...")
+                clean_tables()
+            run_import(args.directory)
+
+        # elif args.command == "update":
+        #     run_update()
+        elif args.command == "search":
+            run_search(args.query)
+
+        close_connection()
+    except Exception as e:
+        logger.exception("Unhandled exception occurred")
+    finally:
+        logger.info("Application exiting")
 
 
 if __name__ == "__main__":
