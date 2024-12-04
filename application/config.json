@@ -1,0 +1,16 @@
+{
+    "database": {
+        "dbname": "paula_db",
+        "user": "postgres",
+        "password": "test1234",
+        "host": "localhost"
+    },
+    "application": {
+        "log_level": "INFO",
+        "batch_size": 100
+    },
+    "musicbrainz": {
+        "user_agent": "Moose/1.0 (susanna@olsoni.de)",
+        "rate_limit": 1
+    }
+}
