@@ -61,6 +61,12 @@ def main():
             "directory", help="Directory containing audio files to import."
         )
         import_parser.add_argument(
+            "--retry-errors",
+            action="store_true",
+            help="Retry files with status = 'error'.",
+        )
+
+        import_parser.add_argument(
             "--clean", action="store_true", help="Clean the database before import."
         )
 
@@ -81,7 +87,7 @@ def main():
             if args.clean:
                 logger.info("Cleaning the database...")
                 clean_tables()
-            run_import(args.directory)
+            run_import(args.directory, retry_errors=args.retry_errors)
 
         # elif args.command == "update":
         #     run_update()

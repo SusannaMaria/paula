@@ -60,7 +60,7 @@ conn = get_connection()
 
 def clean_tables():
     query = """
-    TRUNCATE TABLE tags, tracks, albums, artists RESTART IDENTITY CASCADE;
+    TRUNCATE TABLE tags, tracks, albums, artists, import_progress RESTART IDENTITY CASCADE;
     """
     cursor = conn.cursor()
     try:
@@ -115,6 +115,12 @@ def initialize_schema():
         track_id INT REFERENCES tracks(track_id),
         key TEXT NOT NULL,
         value TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS import_progress (
+        file_path TEXT PRIMARY KEY,
+        status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'imported', or 'error'
+        last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """
     cursor = conn.cursor()
@@ -284,6 +290,28 @@ def execute_query_print_out(sql_query, params):
             )
     except Exception as e:
         logger.error(f"Error executing query: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def execute_query(query, params=None, fetch_one=False, fetch_all=False):
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=DictCursor)
+    try:
+        cursor.execute(query, params)
+        if fetch_one:
+            result = cursor.fetchone()
+        elif fetch_all:
+            result = cursor.fetchall()
+        else:
+            result = None
+        # conn.commit()
+        return result
+    except Exception as e:
+        conn.rollback()
+        print(f"Error executing query: {e}")
+        return None
     finally:
         cursor.close()
         conn.close()
