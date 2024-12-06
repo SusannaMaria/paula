@@ -59,6 +59,10 @@ def get_connection():
 conn = get_connection()
 
 
+def commit():
+    conn.commit()
+
+
 def clean_tables():
     query = """
     TRUNCATE TABLE tags, tracks, albums, artists, import_progress RESTART IDENTITY CASCADE;
@@ -163,29 +167,39 @@ def initialize_schema():
         cursor.close()
 
 
-# Example: Insert custom tag
-def insert_tag(track_id, key, value):
+def create_cursor():
     cursor = conn.cursor()
+    return cursor
+
+
+def close_cursor(cursor):
+    cursor.close()
+
+
+def commit():
+    conn.commit()
+
+
+# Example: Insert custom tag
+def insert_tag(cursor, track_id, key, value):
 
     try:
         cursor.execute(
             "INSERT INTO tags (track_id, key, value) VALUES (%s, %s, %s);",
             (track_id, key, value),
         )
-        conn.commit()
     except Exception as e:
         conn.rollback()
         logger.error(f"Failed to insert tag: {e}")
 
 
-def insert_artist(name, musicbrainz_artist_id, is_musicbrainz_valid):
+def insert_artist(cursor, name, musicbrainz_artist_id, is_musicbrainz_valid):
 
     if is_musicbrainz_valid:
         db_valid = "TRUE"
     else:
         db_valid = "FALSE"
 
-    cursor = conn.cursor()
     try:
         cursor.execute(
             """
@@ -201,23 +215,23 @@ def insert_artist(name, musicbrainz_artist_id, is_musicbrainz_valid):
             """,
             (name, musicbrainz_artist_id, db_valid, musicbrainz_artist_id),
         )
-        conn.commit()
         result = cursor.fetchone()
         return result[0] if result else None  # Return artist_id
     except Exception as e:
         conn.rollback()
         logger.error(f"Failed to insert artist: {e}")
-        sys.exit(1)
 
 
 # Example: Insert album
 def insert_album(
+    cursor,
     name,
     artist_id,
     musicbrainz_album_id,
     barcode=None,
     release_date=None,
     is_musicbrainz_valid=True,
+    folder=None,
 ):
 
     if is_musicbrainz_valid:
@@ -225,13 +239,12 @@ def insert_album(
     else:
         db_valid = "FALSE"
 
-    cursor = conn.cursor()
     try:
         cursor.execute(
             """
             WITH ins AS (
-                INSERT INTO albums (name, artist_id, musicbrainz_album_id, barcode, release_date,is_musicbrainz_valid)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO albums (name, artist_id, musicbrainz_album_id, barcode, release_date,is_musicbrainz_valid,folder_path)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (musicbrainz_album_id) DO NOTHING
                 RETURNING album_id
             )
@@ -246,10 +259,10 @@ def insert_album(
                 barcode,
                 release_date,
                 db_valid,
+                folder,
                 musicbrainz_album_id,
             ),
         )
-        conn.commit()
         result = cursor.fetchone()
         return result[0] if result else None  # Return album_id
     except Exception as e:
@@ -260,6 +273,7 @@ def insert_album(
 
 # Example: Insert track
 def insert_track(
+    cursor,
     title,
     artist_id,
     album_id,
@@ -276,7 +290,6 @@ def insert_track(
     else:
         db_valid = "FALSE"
 
-    cursor = conn.cursor()
     try:
         cursor.execute(
             """
@@ -297,13 +310,11 @@ def insert_track(
                 db_valid,
             ),
         )
-        conn.commit()
         result = cursor.fetchone()
         return result[0] if result else None
     except Exception as e:
         conn.rollback()
         logger.error(f"Failed to insert track: {e}")
-        sys.exit(1)
 
 
 def execute_query_print_out(sql_query, params):
@@ -323,9 +334,7 @@ def execute_query_print_out(sql_query, params):
         conn.close()
 
 
-def execute_query(query, params=None, fetch_one=False, fetch_all=False):
-    conn = get_connection()
-    cursor = conn.cursor(cursor_factory=DictCursor)
+def execute_query(cursor, query, params=None, fetch_one=False, fetch_all=False):
     try:
         cursor.execute(query, params)
         if fetch_one:
@@ -334,15 +343,11 @@ def execute_query(query, params=None, fetch_one=False, fetch_all=False):
             result = cursor.fetchall()
         else:
             result = None
-        # conn.commit()
         return result
     except Exception as e:
         conn.rollback()
         print(f"Error executing query: {e}")
         return None
-    finally:
-        cursor.close()
-        conn.close()
 
 
 def insert_album_tags(album_id, tags):

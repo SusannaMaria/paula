@@ -39,6 +39,7 @@ import logging
 
 from updater.updater_main import run_updater
 from search.search_main import run_search
+from cover.cover_main import create_mosaic
 
 
 def main():
@@ -95,6 +96,8 @@ def main():
             run_updater()
         elif args.command == "search":
             run_search(args.query)
+        elif args.command == "create_mosaic":
+            create_mosaic()
 
         close_connection()
     except Exception as e:

@@ -33,6 +33,10 @@ import os
 from datetime import datetime
 import uuid
 from database.database_helper import (
+    close_connection,
+    close_cursor,
+    commit,
+    create_cursor,
     insert_artist,
     insert_album,
     insert_track,
@@ -68,6 +72,11 @@ def signal_handler(sig, frame):
 
 
 PROGRESS_FILE = "import_progress.csv"
+
+
+def get_folder_from_file_path(file_path):
+    """Extract the folder path from a file path."""
+    return os.path.dirname(file_path)
 
 
 def initialize_progress_file(directory):
@@ -177,8 +186,9 @@ def get_tag(metadata, key, default=None):
     return default
 
 
-def process_audio_file(file_path):
+def process_audio_file(cursor, file_path):
     logger.info(f"Processing: {file_path}")
+    folder = get_folder_from_file_path(file_path)
 
     try:
         # Determine file type and load metadata
@@ -298,26 +308,30 @@ def process_audio_file(file_path):
         artist_ids = extract_valid_uuids(musicbrainz_artist_id)
 
         artist_ids_db = []
+
         for musicbrainz_artist_id in artist_ids:
             # Insert artist
 
             db_artist_id = insert_artist(
-                artist_name, musicbrainz_artist_id, artist_mb_id_valid
+                cursor, artist_name, musicbrainz_artist_id, artist_mb_id_valid
             )
 
             artist_ids_db.append(db_artist_id)
 
         artist_id = artist_ids_db[0] if artist_ids_db else None
         album_id = insert_album(
+            cursor,
             album_name,
             artist_id,
             musicbrainz_album_id,
             barcode,
             year,
             album_mb_id_valid,
+            folder,
         )
 
         track_id = insert_track(
+            cursor,
             track_title,
             artist_id,
             album_id,
@@ -332,7 +346,8 @@ def process_audio_file(file_path):
         if track_id:
             for key in metadata.keys():
                 if key.startswith("TXXX"):
-                    insert_tag(track_id, key, get_tag(metadata, key))
+                    insert_tag(cursor, track_id, key, get_tag(metadata, key))
+
         update_file_status(file_path, "imported")
     except Exception as e:
         logger.error(f"Error processing {file_path}: {e}")
@@ -365,11 +380,15 @@ def run_import(directory, retry_errors=False):
         files_to_process = get_files_by_status("error")
     else:
         files_to_process = get_files_by_status("pending")
-
+    cursor = create_cursor()
     for file_path in files_to_process:
+
         if stop_import:
             logger.info("Import stopped by user.")
             break
-        process_audio_file(file_path)
+        process_audio_file(cursor, file_path)
+        commit()
 
+    close_cursor(cursor)
+    close_connection()
     logger.info("Import complete.")
