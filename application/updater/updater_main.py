@@ -30,6 +30,10 @@ import requests
 import time
 import logging
 from database.database_helper import (
+    close_connection,
+    close_cursor,
+    commit,
+    create_cursor,
     execute_query,
     update_album_tags,
     update_track_tags,
@@ -54,7 +58,7 @@ def signal_handler(sig, frame):
     stop_update = True
 
 
-def initialize_progress_file():
+def initialize_progress_file(cursor):
     """Initialize the progress file if it doesn't exist."""
     if not os.path.exists(PROGRESS_FILE):
         entities = []
@@ -65,7 +69,7 @@ def initialize_progress_file():
             ("album", "SELECT album_id, musicbrainz_album_id FROM albums"),
             ("track", "SELECT track_id, recording_id FROM tracks"),
         ]:
-            result = execute_query(query, fetch_all=True)
+            result = execute_query(cursor, query, fetch_all=True)
             for row in result:
                 entities.append(
                     {
@@ -73,7 +77,7 @@ def initialize_progress_file():
                         "entity_id": row[0],
                         "musicbrainz_id": row[1],
                         "status": "pending",
-                    }
+                    },
                 )
 
         # Write entities to CSV
@@ -97,9 +101,10 @@ def get_pending_items():
     return pending_items
 
 
-def get_items_to_update(table_name):
+def get_items_to_update(cursor, table_name):
     """Fetch items with MusicBrainz IDs that need updating."""
     return execute_query(
+        cursor,
         f"SELECT * FROM {table_name} WHERE is_musicbrainz_valid IS TRUE;",
         fetch_all=True,
     )
@@ -136,14 +141,14 @@ def query_musicbrainz(entity_type, mbid, includes=None):
         headers = {"User-Agent": "Paula/1.0 (susanna@olsoni.de)"}
         response = requests.get(url, params=params, headers=headers)
         response.raise_for_status()
-        time.sleep(0.5)  # Respect API rate limit
+        time.sleep(0.7)  # Respect API rate limit
         return response.json()
     except requests.RequestException as e:
-        print(f"Error querying MusicBrainz for {entity_type} {mbid}: {e}")
+        logger.error(f"Error querying MusicBrainz for {entity_type} {mbid}: {e}")
         return None
 
 
-def update_artist_metadata(artist_id, musicbrainz_data):
+def update_artist_metadata(cursor, artist_id, musicbrainz_data):
     """Update artist metadata in the database, including is_musicbrainz_valid."""
     # print(musicbrainz_data)
     if musicbrainz_data:
@@ -201,6 +206,7 @@ def update_artist_metadata(artist_id, musicbrainz_data):
             WHERE artist_id = %s;
         """
         execute_query(
+            cursor,
             query,
             (
                 name,
@@ -222,10 +228,18 @@ def update_artist_metadata(artist_id, musicbrainz_data):
             SET is_musicbrainz_valid = FALSE
             WHERE artist_id = %s;
         """
-        execute_query(query, (artist_id,))
+        execute_query(cursor, query, (artist_id,))
+
+    # Fetch and update tags
+    tags = fetch_artist_tags(musicbrainz_data["id"])
+    update_artist_tags(cursor, artist_id, tags)
+
+    # Fetch and update relationships
+    relationships = fetch_artist_relationships(musicbrainz_data["id"])
+    update_artist_relationships(cursor, artist_id, relationships)
 
 
-def update_album_metadata(album_id, musicbrainz_data):
+def update_album_metadata(cursor, album_id, musicbrainz_data):
     """Update album metadata and tags in the database."""
     if musicbrainz_data:
         # Extract and update fields
@@ -245,7 +259,7 @@ def update_album_metadata(album_id, musicbrainz_data):
 
             tags = [tag["name"] for tag in release_group.get("tags", [])]
 
-            print((title, primary_type, secondary_types, release_date, album_id))
+            logger.debug((title, primary_type, secondary_types, release_date, album_id))
 
             is_valid = True
 
@@ -259,6 +273,7 @@ def update_album_metadata(album_id, musicbrainz_data):
             WHERE album_id = %s;
         """
         execute_query(
+            cursor,
             query,
             (title, primary_type, secondary_types, release_date, is_valid, album_id),
         )
@@ -273,10 +288,10 @@ def update_album_metadata(album_id, musicbrainz_data):
             SET is_musicbrainz_valid = FALSE
             WHERE album_id = %s;
         """
-        execute_query(query, (album_id,))
+        execute_query(cursor, query, (album_id,))
 
 
-def update_track_metadata(track_id, musicbrainz_id, musicbrainz_data):
+def update_track_metadata(cursor, track_id, musicbrainz_id, musicbrainz_data):
     """Update track metadata and tags in the database."""
     if musicbrainz_data:
         # Extract and update fields
@@ -305,12 +320,12 @@ def update_track_metadata(track_id, musicbrainz_id, musicbrainz_data):
             WHERE track_id = %s;
         """
         execute_query(
-            query, (recording_id, title, formatted_length, is_valid, track_id)
+            cursor, query, (recording_id, title, formatted_length, is_valid, track_id)
         )
 
         # Update tags in the track_tags table
         if tags:
-            update_track_tags(track_id, tags)
+            update_track_tags(cursor, track_id, tags)
     else:
         # Mark as invalid if no data is available
         query = """
@@ -321,13 +336,101 @@ def update_track_metadata(track_id, musicbrainz_id, musicbrainz_data):
         execute_query(query, (track_id,))
 
 
+def fetch_artist_tags(artist_id):
+    """Fetch tags for an artist from MusicBrainz."""
+    url = f"https://musicbrainz.org/ws/2/artist/{artist_id}"
+    params = {"inc": "tags", "fmt": "json"}
+    headers = {"User-Agent": "Paula/1.0 (susanna@example.com)"}
+
+    response = requests.get(url, params=params, headers=headers)
+    time.sleep(0.7)  # Respect API rate limit
+    if response.status_code == 200:
+        data = response.json()
+        tags = [tag["name"] for tag in data.get("tags", [])]
+        return tags
+    else:
+        logger.error(
+            f"Error fetching tags for artist {artist_id}: {response.status_code}"
+        )
+        return []
+
+
+def fetch_artist_relationships(artist_id):
+    """Fetch relationships for an artist from MusicBrainz."""
+    url = f"https://musicbrainz.org/ws/2/artist/{artist_id}"
+    params = {"inc": "artist-rels", "fmt": "json"}
+    headers = {"User-Agent": "Paula/1.0 (susanna@example.com)"}
+
+    response = requests.get(url, params=params, headers=headers)
+    time.sleep(0.7)  # Respect API rate limit
+    if response.status_code == 200:
+        data = response.json()
+        relations = [
+            {"related_artist_id": rel["artist"]["id"], "relationship_type": rel["type"]}
+            for rel in data.get("relations", [])
+            if "artist" in rel
+        ]
+        return relations
+    else:
+        logger.error(
+            f"Error fetching relationships for artist {artist_id}: {response.status_code}"
+        )
+        return []
+
+
+def update_artist_tags(cursor, artist_id, tags):
+    """Update tags for an artist in the database."""
+    # Remove existing tags
+    execute_query(cursor, "DELETE FROM artist_tags WHERE artist_id = %s;", (artist_id,))
+
+    # Insert new tags
+    for tag in tags:
+        execute_query(
+            cursor,
+            "INSERT INTO artist_tags (artist_id, tag) VALUES (%s, %s) ON CONFLICT DO NOTHING;",
+            (artist_id, tag),
+        )
+
+
+def update_artist_relationships(cursor, artist_id, relationships):
+    """Update relationships for an artist in the database."""
+    # Remove existing relationships
+    execute_query(
+        cursor, "DELETE FROM artist_relationships WHERE artist_id = %s;", (artist_id,)
+    )
+
+    # Insert new relationships
+    for relation in relationships:
+        # Get related_artist_id from the database
+        related_artist_id = get_artist_id_from_musicbrainz(
+            cursor, relation["related_artist_id"]
+        )
+        if related_artist_id:
+            execute_query(
+                cursor,
+                """
+                INSERT INTO artist_relationships (artist_id, related_artist_id, relationship_type)
+                VALUES (%s, %s, %s) ON CONFLICT DO NOTHING;
+                """,
+                (artist_id, related_artist_id, relation["relationship_type"]),
+            )
+
+
+def get_artist_id_from_musicbrainz(cursor, musicbrainz_artist_id):
+    """Get artist ID from MusicBrainz ID in the database."""
+    query = "SELECT artist_id FROM artists WHERE musicbrainz_artist_id = %s;"
+    result = execute_query(cursor, query, (musicbrainz_artist_id,), fetch_one=True)
+    return result[0] if result else None
+
+
 def run_updater():
     signal.signal(signal.SIGINT, signal_handler)
     """Run the MusicBrainz updater with CSV-based tracking and detailed logging."""
     logger.info("Starting MusicBrainz updater...")
+    cursor = create_cursor()
 
     # Ensure the progress file is initialized
-    initialize_progress_file()
+    initialize_progress_file(cursor)
     logger.info(f"Initialized or verified progress file: {PROGRESS_FILE}")
 
     # Fetch pending items
@@ -353,27 +456,31 @@ def run_updater():
             if entity_type == "artist":
                 data = query_musicbrainz("artist", musicbrainz_id)
                 if data:
-                    update_artist_metadata(entity_id, data)
+                    update_artist_metadata(cursor, entity_id, data)
                     logger.info(f"Successfully updated artist ID {entity_id}")
             elif entity_type == "album":
                 data = query_musicbrainz(
                     "release", musicbrainz_id, includes="tags release-groups"
                 )
                 if data:
-                    update_album_metadata(entity_id, data)
+                    update_album_metadata(cursor, entity_id, data)
                     logger.info(f"Successfully updated album ID {entity_id}")
             elif entity_type == "track":
                 data = query_musicbrainz(
                     "release", f"?track={musicbrainz_id}", includes="tags"
                 )
                 if data:
-                    update_track_metadata(entity_id, musicbrainz_id, data)
+                    update_track_metadata(cursor, entity_id, musicbrainz_id, data)
                     logger.info(f"Successfully updated track ID {entity_id}")
 
+            commit()
             # Mark as updated
             update_item_status(entity_type, entity_id, "updated")
         except Exception as e:
             logger.error(f"Error updating {entity_type} ID {entity_id}: {e}")
             update_item_status(entity_type, entity_id, "error")
+
+    close_cursor(cursor)
+    close_connection()
 
     logger.info("MusicBrainz updater completed.")

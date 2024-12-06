@@ -228,6 +228,19 @@ def initialize_schema():
         tag TEXT NOT NULL,
         PRIMARY KEY (track_id, tag)
     );
+
+    CREATE TABLE artist_tags (
+        artist_id INT REFERENCES artists(artist_id) ON DELETE CASCADE,
+        tag TEXT NOT NULL,
+        PRIMARY KEY (artist_id, tag)
+    );
+
+    CREATE TABLE artist_relationships (
+        artist_id INT REFERENCES artists(artist_id) ON DELETE CASCADE,
+        related_artist_id INT REFERENCES artists(artist_id) ON DELETE CASCADE,
+        relationship_type TEXT NOT NULL,
+        PRIMARY KEY (artist_id, related_artist_id, relationship_type)
+    );
     """
     cursor = conn.cursor()
     try:
@@ -255,6 +268,7 @@ def insert_tag(cursor, track_id, key, value):
 
     try:
         cursor.execute(
+            cursor,
             "INSERT INTO tags (track_id, key, value) VALUES (%s, %s, %s);",
             (track_id, key, value),
         )
@@ -420,33 +434,7 @@ def execute_query(cursor, query, params=None, fetch_one=False, fetch_all=False):
         return None
 
 
-def insert_album_tags(album_id, tags):
-    """Insert tags for an album into the album_tags table."""
-    for tag in tags:
-        execute_query(
-            """
-            INSERT INTO album_tags (album_id, tag)
-            VALUES (%s, %s)
-            ON CONFLICT DO NOTHING;
-            """,
-            (album_id, tag),
-        )
-
-
-def insert_track_tags(track_id, tags):
-    """Insert tags for a track into the track_tags table."""
-    for tag in tags:
-        execute_query(
-            """
-            INSERT INTO track_tags (track_id, tag)
-            VALUES (%s, %s)
-            ON CONFLICT DO NOTHING;
-            """,
-            (track_id, tag),
-        )
-
-
-def update_album_tags(album_id, tags):
+def update_album_tags(cursor, album_id, tags):
     """Update tags for an album."""
     # Remove existing tags for the album
     execute_query("DELETE FROM album_tags WHERE album_id = %s;", (album_id,))
@@ -459,7 +447,7 @@ def update_album_tags(album_id, tags):
         )
 
 
-def update_track_tags(track_id, tags):
+def update_track_tags(cursor, track_id, tags):
     """Update tags for a track."""
     # Remove existing tags for the track
     execute_query("DELETE FROM track_tags WHERE track_id = %s;", (track_id,))
@@ -467,6 +455,7 @@ def update_track_tags(track_id, tags):
     # Insert new tags
     for tag in tags:
         execute_query(
+            cursor,
             "INSERT INTO track_tags (track_id, tag) VALUES (%s, %s) ON CONFLICT DO NOTHING;",
             (track_id, tag),
         )

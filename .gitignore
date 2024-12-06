@@ -163,3 +163,5 @@ cython_debug/
 application/import_progress.csv
 application/logs/application.log.1
 application/update_progress.csv
+application/logs/application.log.2
+application/backups/*.sql
