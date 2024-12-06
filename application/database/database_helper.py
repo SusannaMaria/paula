@@ -31,6 +31,7 @@ from config_loader import load_config
 import psycopg2
 from psycopg2.extras import DictCursor
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -73,16 +74,30 @@ def clean_tables():
     finally:
         cursor.close()
 
+    # Remove progress files
+    for file_name in ["update_progress.csv", "import_progress.csv"]:
+        if os.path.exists(file_name):
+            os.remove(file_name)
+            print(f"Removed {file_name}.")
+        else:
+            print(f"{file_name} does not exist.")
+
 
 # Initialize Database Schema
 def initialize_schema():
     schema_sql = """
-   CREATE TABLE IF NOT EXISTS artists (
-        artist_id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        musicbrainz_artist_id UUID UNIQUE,
-        is_musicbrainz_valid BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    CREATE TABLE artists (
+        artist_id SERIAL PRIMARY KEY,                -- Unique identifier for the artist
+        name TEXT NOT NULL,                          -- Artist's name
+        sort_name TEXT,                              -- Name used for sorting
+        type TEXT,                                   -- Type of artist (e.g., Group, Person)
+        begin_area TEXT,                             -- Origin location
+        life_span_start DATE,                        -- Start date of the artist's lifespan
+        life_span_end DATE,                          -- End date of the artist's lifespan
+        life_span_ended BOOLEAN DEFAULT FALSE,       -- End of the artist's lifespan
+        aliases TEXT[],                              -- Array of aliases or alternate names
+        is_musicbrainz_valid BOOLEAN DEFAULT TRUE,  -- Indicates if the MusicBrainz data is valid
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP  -- Timestamp for creation
     );
 
     CREATE TABLE IF NOT EXISTS albums (
@@ -96,20 +111,22 @@ def initialize_schema():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS tracks (
-        track_id SERIAL PRIMARY KEY,
-        title TEXT NOT NULL,
-        artist_id INT REFERENCES artists(artist_id),
-        album_id INT REFERENCES albums(album_id),
-        genre TEXT,
-        year DATE,
-        track_number TEXT,
-        path TEXT NOT NULL,
-        musicbrainz_release_track_id UUID UNIQUE,
-        is_musicbrainz_valid BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    CREATE TABLE tracks (
+        track_id SERIAL PRIMARY KEY,                   -- Unique identifier for each track
+        title TEXT NOT NULL,                           -- Track title
+        artist_id INT REFERENCES artists(artist_id) ON DELETE CASCADE,  -- Associated artist
+        album_id INT REFERENCES albums(album_id) ON DELETE CASCADE,    -- Associated album
+        genre TEXT,                                    -- Genre of the track
+        year DATE,                                     -- Release year of the track
+        track_number TEXT,                             -- Track number in the album
+        path TEXT NOT NULL,                            -- File path of the track
+        length TEXT,                                   -- Duration of the track in a readable format (e.g., 3:45)
+        recording_id UUID UNIQUE,                      -- MusicBrainz recording ID
+        musicbrainz_release_track_id UUID UNIQUE,     -- MusicBrainz release track ID
+        is_musicbrainz_valid BOOLEAN DEFAULT TRUE,    -- Validity flag for MusicBrainz data
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Timestamp for track creation
     );
-
+    
     CREATE TABLE IF NOT EXISTS tags (
         tag_id SERIAL PRIMARY KEY,
         track_id INT REFERENCES tracks(track_id),
@@ -121,6 +138,17 @@ def initialize_schema():
         file_path TEXT PRIMARY KEY,
         status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'imported', or 'error'
         last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE album_tags (
+        album_id INT REFERENCES albums(album_id) ON DELETE CASCADE,
+        tag TEXT NOT NULL,
+        PRIMARY KEY (album_id, tag)
+    );
+
+    CREATE TABLE track_tags (
+        track_id INT REFERENCES tracks(track_id) ON DELETE CASCADE,
+        tag TEXT NOT NULL,
+        PRIMARY KEY (track_id, tag)
     );
     """
     cursor = conn.cursor()
@@ -315,3 +343,55 @@ def execute_query(query, params=None, fetch_one=False, fetch_all=False):
     finally:
         cursor.close()
         conn.close()
+
+
+def insert_album_tags(album_id, tags):
+    """Insert tags for an album into the album_tags table."""
+    for tag in tags:
+        execute_query(
+            """
+            INSERT INTO album_tags (album_id, tag)
+            VALUES (%s, %s)
+            ON CONFLICT DO NOTHING;
+            """,
+            (album_id, tag),
+        )
+
+
+def insert_track_tags(track_id, tags):
+    """Insert tags for a track into the track_tags table."""
+    for tag in tags:
+        execute_query(
+            """
+            INSERT INTO track_tags (track_id, tag)
+            VALUES (%s, %s)
+            ON CONFLICT DO NOTHING;
+            """,
+            (track_id, tag),
+        )
+
+
+def update_album_tags(album_id, tags):
+    """Update tags for an album."""
+    # Remove existing tags for the album
+    execute_query("DELETE FROM album_tags WHERE album_id = %s;", (album_id,))
+
+    # Insert new tags
+    for tag in tags:
+        execute_query(
+            "INSERT INTO album_tags (album_id, tag) VALUES (%s, %s) ON CONFLICT DO NOTHING;",
+            (album_id, tag),
+        )
+
+
+def update_track_tags(track_id, tags):
+    """Update tags for a track."""
+    # Remove existing tags for the track
+    execute_query("DELETE FROM track_tags WHERE track_id = %s;", (track_id,))
+
+    # Insert new tags
+    for tag in tags:
+        execute_query(
+            "INSERT INTO track_tags (track_id, tag) VALUES (%s, %s) ON CONFLICT DO NOTHING;",
+            (track_id, tag),
+        )

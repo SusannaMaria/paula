@@ -67,9 +67,6 @@ def signal_handler(sig, frame):
     stop_import = True
 
 
-signal.signal(signal.SIGINT, signal_handler)
-
-
 PROGRESS_FILE = "import_progress.csv"
 
 
@@ -209,6 +206,14 @@ def process_audio_file(file_path):
 
         # Extract metadata
         metadata = audio.tags
+        # # Check if tags exist and print the keys
+        # if metadata:
+        #     print("Keys in audio tags:")
+        #     for key in metadata.keys():
+        #         print(key)
+        # else:
+        #     print("No tags found in the audio file.")
+        # exit()
         artist_name = (
             metadata.get("TPE1", ["Unknown Artist"])[0]
             if "TPE1" in metadata
@@ -347,6 +352,8 @@ def get_error_files(max_retries=3):
 
 
 def run_import(directory, retry_errors=False):
+    signal.signal(signal.SIGINT, signal_handler)
+
     logger.info(f"Starting import from directory: {directory}")
 
     # Initialize or retrieve files

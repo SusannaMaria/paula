@@ -37,7 +37,7 @@ from database.database_helper import clean_tables, close_connection
 from logging_config import setup_logging
 import logging
 
-# from updater.updater_main import run_update
+from updater.updater_main import run_updater
 from search.search_main import run_search
 
 
@@ -70,10 +70,12 @@ def main():
             "--clean", action="store_true", help="Clean the database before import."
         )
 
-        # # Update Command
-        # update_parser = subparsers.add_parser("update", help="Update database using MusicBrainz.")
+        # Update Command
+        update_parser = subparsers.add_parser(
+            "update", help="Update database using MusicBrainz."
+        )
 
-        # # Search Command
+        # Search Command
         search_parser = subparsers.add_parser(
             "search", help="Search music in the database."
         )
@@ -89,8 +91,8 @@ def main():
                 clean_tables()
             run_import(args.directory, retry_errors=args.retry_errors)
 
-        # elif args.command == "update":
-        #     run_update()
+        elif args.command == "update":
+            run_updater()
         elif args.command == "search":
             run_search(args.query)
 
