@@ -32,6 +32,9 @@ import psycopg2
 from psycopg2.extras import DictCursor
 import logging
 import os
+import subprocess
+import os
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +88,77 @@ def clean_tables():
             print(f"Removed {file_name}.")
         else:
             print(f"{file_name} does not exist.")
+
+
+def backup_database(output_dir="backups"):
+    """Backup the database using pg_dump."""
+    os.makedirs(output_dir, exist_ok=True)  # Ensure the backup directory exists
+
+    backup_file = os.path.join(
+        output_dir,
+        f"{db_config.get("dbname")}_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql",
+    )
+
+    try:
+        env = os.environ.copy()
+        env["PGPASSWORD"] = db_config.get("password")
+        # Run the pg_dump command
+        subprocess.run(
+            [
+                r"C:\Program Files\PostgreSQL\17\bin\pg_dump.exe",
+                "-U",
+                db_config.get("user"),
+                "-F",
+                "c",
+                "-d",
+                db_config.get("dbname"),
+                "-f",
+                backup_file,
+            ],
+            check=True,
+            text=True,
+        )
+        print(f"Backup successful. File saved to: {backup_file}")
+        return backup_file
+    except subprocess.CalledProcessError as e:
+        print(f"Error during backup: {e}")
+        return None
+
+
+def restore_database(backup_file):
+    """Restore the database using pg_restore."""
+    try:
+        env = os.environ.copy()
+        env["PGPASSWORD"] = db_config.get("password")
+
+        # Drop and recreate the database before restoring
+        subprocess.run(
+            ["dropdb", "-U", db_config.get("user"), db_config.get("dbname")],
+            check=True,
+            text=True,
+        )
+        subprocess.run(
+            ["createdb", "-U", db_config.get("user"), db_config.get("dbname")],
+            check=True,
+            text=True,
+        )
+
+        # Run the pg_restore command
+        subprocess.run(
+            [
+                r"C:\Program Files\PostgreSQL\17\bin\pg_restore",
+                "-U",
+                db_config.get("user"),
+                "-d",
+                db_config.get("dbname"),
+                backup_file,
+            ],
+            check=True,
+            text=True,
+        )
+        print(f"Restore successful from file: {backup_file}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error during restore: {e}")
 
 
 # Initialize Database Schema
@@ -174,10 +248,6 @@ def create_cursor():
 
 def close_cursor(cursor):
     cursor.close()
-
-
-def commit():
-    conn.commit()
 
 
 # Example: Insert custom tag

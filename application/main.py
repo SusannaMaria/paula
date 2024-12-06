@@ -33,7 +33,12 @@ sys.stderr.reconfigure(encoding="utf-8")
 
 import argparse
 from importer.importer_main import run_import
-from database.database_helper import clean_tables, close_connection
+from database.database_helper import (
+    backup_database,
+    clean_tables,
+    close_connection,
+    restore_database,
+)
 from logging_config import setup_logging
 import logging
 
@@ -83,7 +88,8 @@ def main():
         search_parser.add_argument(
             "query", help="Search query (e.g., 'artist: Tool and genre: Rock')."
         )
-
+        subparsers.add_parser("backup", help="Backup database into file")
+        subparsers.add_parser("restore", help="Restore database from file")
         args = parser.parse_args()
 
         if args.command == "import":
@@ -98,6 +104,13 @@ def main():
             run_search(args.query)
         elif args.command == "create_mosaic":
             create_mosaic()
+        elif args.command == "backup":
+            backup_file = backup_database()
+            if backup_file:
+                print(f"Database backed up successfully to {backup_file}.")
+        elif args.command == "restore":
+            backup_file = input("Enter the path to the backup file: ")
+            restore_database(backup_file=backup_file)
 
         close_connection()
     except Exception as e:
