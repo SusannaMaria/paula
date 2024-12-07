@@ -42,6 +42,8 @@ from database.database_helper import (
 import csv
 import os
 import signal
+import time
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -131,18 +133,14 @@ def update_item_status(entity_type, entity_id, status):
 
 def query_musicbrainz(entity_type, mbid, includes=None):
     """Query the MusicBrainz API."""
-    base_url = "https://musicbrainz.org/ws/2"
+
     params = {"fmt": "json"}
     if includes:
         params["inc"] = includes
-    url = f"{base_url}/{entity_type}/{mbid}"
+    url = f"{entity_type}/{mbid}"
 
     try:
-        headers = {"User-Agent": "Paula/1.0 (susanna@olsoni.de)"}
-        response = requests.get(url, params=params, headers=headers)
-        response.raise_for_status()
-        time.sleep(0.7)  # Respect API rate limit
-        return response.json()
+        return fetch_with_retries(url, params)
     except requests.RequestException as e:
         logger.error(f"Error querying MusicBrainz for {entity_type} {mbid}: {e}")
         return None
@@ -338,33 +336,24 @@ def update_track_metadata(cursor, track_id, musicbrainz_id, musicbrainz_data):
 
 def fetch_artist_tags(artist_id):
     """Fetch tags for an artist from MusicBrainz."""
-    url = f"https://musicbrainz.org/ws/2/artist/{artist_id}"
+    url = f"artist/{artist_id}"
     params = {"inc": "tags", "fmt": "json"}
-    headers = {"User-Agent": "Paula/1.0 (susanna@example.com)"}
+    data = fetch_with_retries(url, params)
 
-    response = requests.get(url, params=params, headers=headers)
-    time.sleep(0.7)  # Respect API rate limit
-    if response.status_code == 200:
-        data = response.json()
+    if data:
         tags = [tag["name"] for tag in data.get("tags", [])]
         return tags
     else:
-        logger.error(
-            f"Error fetching tags for artist {artist_id}: {response.status_code}"
-        )
+        logger.error(f"Error fetching tags for artist {artist_id}")
         return []
 
 
 def fetch_artist_relationships(artist_id):
     """Fetch relationships for an artist from MusicBrainz."""
-    url = f"https://musicbrainz.org/ws/2/artist/{artist_id}"
+    url = f"artist/{artist_id}"
     params = {"inc": "artist-rels", "fmt": "json"}
-    headers = {"User-Agent": "Paula/1.0 (susanna@example.com)"}
-
-    response = requests.get(url, params=params, headers=headers)
-    time.sleep(0.7)  # Respect API rate limit
-    if response.status_code == 200:
-        data = response.json()
+    data = fetch_with_retries(url, params)
+    if data:
         relations = [
             {"related_artist_id": rel["artist"]["id"], "relationship_type": rel["type"]}
             for rel in data.get("relations", [])
@@ -372,9 +361,7 @@ def fetch_artist_relationships(artist_id):
         ]
         return relations
     else:
-        logger.error(
-            f"Error fetching relationships for artist {artist_id}: {response.status_code}"
-        )
+        logger.error(f"Error fetching relationships for artist {artist_id}")
         return []
 
 
@@ -423,6 +410,128 @@ def get_artist_id_from_musicbrainz(cursor, musicbrainz_artist_id):
     return result[0] if result else None
 
 
+def fetch_with_retries(suburl, params=None, max_retries=5, backoff_factor=1):
+    """
+    Fetch data from a URL with retry logic for 503 errors.
+
+    Args:
+        url (str): The URL to fetch.
+        params (dict): Query parameters.
+        headers (dict): Request headers.
+        max_retries (int): Maximum number of retries.
+        backoff_factor (int): Factor for exponential backoff.
+
+    Returns:
+        Response: The HTTP response object if successful.
+        None: If all retries fail.
+    """
+    headers = {"User-Agent": "Paula/1.0 (susanna@example.com)"}
+    base_url = "https://musicbrainz.org/ws/2"
+    url = f"{base_url}/{suburl}"
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = requests.get(url, params=params, headers=headers)
+            response.raise_for_status()  # Raise HTTPError for bad responses (4xx and 5xx)
+            time.sleep(0.5)
+            return response.json()
+        except requests.exceptions.HTTPError as e:
+            if response.status_code == 503:
+                wait_time = backoff_factor * (2 ** (attempt - 1))  # Exponential backoff
+                print(
+                    f"Attempt {attempt}/{max_retries} failed with 503. Retrying in {wait_time} seconds..."
+                )
+                time.sleep(wait_time)
+            else:
+                print(f"HTTP error occurred: {e}")
+                break
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            break
+
+    print(f"Failed to fetch data from {url} after {max_retries} attempts.")
+    return None
+
+
+def process_entity(
+    entity_type, index, total_items, entity_id, musicbrainz_id, scope, cursor
+):
+    """Process a single entity (artist, album, or track) based on its type."""
+    entity_config = {
+        "artist": {
+            "scope_check": "artists",
+            "query_type": "artist",
+            "includes": None,
+            "id_format": lambda mb_id: mb_id,  # Use musicbrainz_id directly
+            "update_func": lambda cursor, entity_id, data: update_artist_metadata(
+                cursor, entity_id, data
+            ),
+            "success_log": f"Successfully updated artist ID {entity_id}",
+        },
+        "album": {
+            "scope_check": "albums",
+            "query_type": "release",
+            "includes": "tags release-groups",
+            "id_format": lambda mb_id: mb_id,  # Use musicbrainz_id directly
+            "update_func": lambda cursor, entity_id, data: update_album_metadata(
+                cursor, entity_id, data
+            ),
+            "success_log": f"Successfully updated album ID {entity_id}",
+        },
+        "track": {
+            "scope_check": "tracks",
+            "query_type": "release",
+            "includes": "tags",
+            "id_format": lambda mb_id: f"?track={mb_id}",  # Format for track queries
+            "update_func": lambda cursor, entity_id, data: update_track_metadata(
+                cursor, entity_id, musicbrainz_id, data
+            ),
+            "success_log": f"Successfully updated track ID {entity_id}",
+        },
+    }
+
+    if entity_type not in entity_config:
+        logger.error(f"Unknown entity type: {entity_type}")
+        return
+
+    config = entity_config[entity_type]
+
+    if scope in [config["scope_check"], "all"]:
+        logger.info(
+            f"Processing {entity_type} {index}/{total_items}: "
+            f"ID {entity_id}, MusicBrainz ID {musicbrainz_id}"
+        )
+
+        # Query MusicBrainz
+        try:
+            formatted_id = config["id_format"](musicbrainz_id)
+            query_params = config["includes"]
+            data = query_musicbrainz(
+                config["query_type"], formatted_id, includes=query_params
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to query MusicBrainz for {entity_type} ID {entity_id}: {e}"
+            )
+            update_item_status(entity_type, entity_id, "error")
+            return
+
+        if data:
+            try:
+                # Update the database
+                config["update_func"](cursor, entity_id, data)
+                logger.info(config["success_log"])
+                commit()
+
+                # Mark as updated
+                update_item_status(entity_type, entity_id, "updated")
+            except Exception as e:
+                logger.error(f"Failed to update {entity_type} ID {entity_id}: {e}")
+                update_item_status(entity_type, entity_id, "error")
+        else:
+            logger.warning(f"No data found for {entity_type} ID {entity_id}")
+            update_item_status(entity_type, entity_id, "no_data")
+
+
 def run_updater(scope):
     signal.signal(signal.SIGINT, signal_handler)
     """Run the MusicBrainz updater with CSV-based tracking and detailed logging."""
@@ -447,38 +556,9 @@ def run_updater(scope):
         entity_id = int(item["entity_id"])
         musicbrainz_id = item["musicbrainz_id"]
 
-        logger.info(
-            f"Processing {entity_type} {index}/{total_items}: ID {entity_id}, MusicBrainz ID {musicbrainz_id}"
+        process_entity(
+            entity_type, index, total_items, entity_id, musicbrainz_id, scope, cursor
         )
-
-        try:
-            # Query MusicBrainz based on entity type
-            if entity_type == "artist" and scope in ["artists", "all"]:
-                data = query_musicbrainz("artist", musicbrainz_id)
-                if data:
-                    update_artist_metadata(cursor, entity_id, data)
-                    logger.info(f"Successfully updated artist ID {entity_id}")
-            elif entity_type == "album" and scope in ["albums", "all"]:
-                data = query_musicbrainz(
-                    "release", musicbrainz_id, includes="tags release-groups"
-                )
-                if data:
-                    update_album_metadata(cursor, entity_id, data)
-                    logger.info(f"Successfully updated album ID {entity_id}")
-            elif entity_type == "track" and scope in ["tracks", "all"]:
-                data = query_musicbrainz(
-                    "release", f"?track={musicbrainz_id}", includes="tags"
-                )
-                if data:
-                    update_track_metadata(cursor, entity_id, musicbrainz_id, data)
-                    logger.info(f"Successfully updated track ID {entity_id}")
-
-            commit()
-            # Mark as updated
-            update_item_status(entity_type, entity_id, "updated")
-        except Exception as e:
-            logger.error(f"Error updating {entity_type} ID {entity_id}: {e}")
-            update_item_status(entity_type, entity_id, "error")
 
     close_cursor(cursor)
     close_connection()

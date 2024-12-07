@@ -85,6 +85,7 @@ def main():
             choices=["artists", "albums", "tracks", "all"],
             help="Specify what to update: artists, albums, tracks or all.",
             required=False,
+            default="all",
         )
 
         # Search Command

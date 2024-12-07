@@ -161,7 +161,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 application/import_progress.csv
-application/logs/application.log.1
+application/logs/application.log*
 application/update_progress.csv
-application/logs/application.log.2
 application/backups/*.sql
