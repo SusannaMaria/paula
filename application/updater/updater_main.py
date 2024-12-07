@@ -67,7 +67,7 @@ def initialize_progress_file(cursor):
         for entity_type, query in [
             ("artist", "SELECT artist_id, musicbrainz_artist_id FROM artists"),
             ("album", "SELECT album_id, musicbrainz_album_id FROM albums"),
-            ("track", "SELECT track_id, recording_id FROM tracks"),
+            ("track", "SELECT track_id, musicbrainz_release_track_id FROM tracks"),
         ]:
             result = execute_query(cursor, query, fetch_all=True)
             for row in result:
@@ -280,7 +280,7 @@ def update_album_metadata(cursor, album_id, musicbrainz_data):
 
         # Update tags in the album_tags table
         if tags:
-            update_album_tags(album_id, tags)
+            update_album_tags(cursor, album_id, tags)
     else:
         # Mark as invalid if no data is available
         query = """
@@ -423,7 +423,7 @@ def get_artist_id_from_musicbrainz(cursor, musicbrainz_artist_id):
     return result[0] if result else None
 
 
-def run_updater():
+def run_updater(scope):
     signal.signal(signal.SIGINT, signal_handler)
     """Run the MusicBrainz updater with CSV-based tracking and detailed logging."""
     logger.info("Starting MusicBrainz updater...")
@@ -453,19 +453,19 @@ def run_updater():
 
         try:
             # Query MusicBrainz based on entity type
-            if entity_type == "artist":
+            if entity_type == "artist" and scope in ["artists", "all"]:
                 data = query_musicbrainz("artist", musicbrainz_id)
                 if data:
                     update_artist_metadata(cursor, entity_id, data)
                     logger.info(f"Successfully updated artist ID {entity_id}")
-            elif entity_type == "album":
+            elif entity_type == "album" and scope in ["albums", "all"]:
                 data = query_musicbrainz(
                     "release", musicbrainz_id, includes="tags release-groups"
                 )
                 if data:
                     update_album_metadata(cursor, entity_id, data)
                     logger.info(f"Successfully updated album ID {entity_id}")
-            elif entity_type == "track":
+            elif entity_type == "track" and scope in ["tracks", "all"]:
                 data = query_musicbrainz(
                     "release", f"?track={musicbrainz_id}", includes="tags"
                 )

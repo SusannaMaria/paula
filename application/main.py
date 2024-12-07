@@ -80,6 +80,12 @@ def main():
         update_parser = subparsers.add_parser(
             "update", help="Update database using MusicBrainz."
         )
+        update_parser.add_argument(
+            "--type",
+            choices=["artists", "albums", "tracks", "all"],
+            help="Specify what to update: artists, albums, tracks or all.",
+            required=False,
+        )
 
         # Search Command
         search_parser = subparsers.add_parser(
@@ -99,7 +105,7 @@ def main():
             run_import(args.directory, retry_errors=args.retry_errors)
 
         elif args.command == "update":
-            run_updater()
+            run_updater(args.type)
         elif args.command == "search":
             run_search(args.query)
         elif args.command == "create_mosaic":

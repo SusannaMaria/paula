@@ -437,11 +437,12 @@ def execute_query(cursor, query, params=None, fetch_one=False, fetch_all=False):
 def update_album_tags(cursor, album_id, tags):
     """Update tags for an album."""
     # Remove existing tags for the album
-    execute_query("DELETE FROM album_tags WHERE album_id = %s;", (album_id,))
+    execute_query(cursor, "DELETE FROM album_tags WHERE album_id = %s;", (album_id,))
 
     # Insert new tags
     for tag in tags:
         execute_query(
+            cursor,
             "INSERT INTO album_tags (album_id, tag) VALUES (%s, %s) ON CONFLICT DO NOTHING;",
             (album_id, tag),
         )
@@ -450,7 +451,7 @@ def update_album_tags(cursor, album_id, tags):
 def update_track_tags(cursor, track_id, tags):
     """Update tags for a track."""
     # Remove existing tags for the track
-    execute_query("DELETE FROM track_tags WHERE track_id = %s;", (track_id,))
+    execute_query(cursor, "DELETE FROM track_tags WHERE track_id = %s;", (track_id,))
 
     # Insert new tags
     for tag in tags:
