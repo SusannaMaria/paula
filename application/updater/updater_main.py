@@ -44,6 +44,7 @@ import os
 import signal
 import time
 import requests
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +162,7 @@ def update_artist_metadata(cursor, artist_id, musicbrainz_data):
         sort_name = musicbrainz_data.get("sort-name")
         type_ = musicbrainz_data.get("type")
         begin_area_struct = musicbrainz_data.get("begin-area", {})
+
         if begin_area_struct:
             begin_area = begin_area_struct.get("name")
         else:
@@ -192,8 +194,22 @@ def update_artist_metadata(cursor, artist_id, musicbrainz_data):
         else:
             life_span_start = None
             life_span_end = None
-
         aliases = [alias["name"] for alias in musicbrainz_data.get("aliases", [])]
+
+        wikidata_url = next(
+            (
+                rel["url"]
+                for rel in musicbrainz_data.get("relations", [])
+                if "wikidata" in rel.get("type", "")
+            ),
+            None,
+        )
+        wikidata_id = None
+        if wikidata_url:
+            if wikidata_url["resource"]:
+                wikidata_id = wikidata_url["resource"].split("/")[
+                    -1
+                ]  # Extract the ID from the URL
         is_valid = True
 
         query = """
@@ -206,7 +222,8 @@ def update_artist_metadata(cursor, artist_id, musicbrainz_data):
                 life_span_end = %s,
                 life_span_ended = %s,
                 aliases = %s,
-                is_musicbrainz_valid = %s
+                is_musicbrainz_valid = %s,
+                wikidata_id = %s
             WHERE artist_id = %s;
         """
         execute_query(
@@ -222,6 +239,7 @@ def update_artist_metadata(cursor, artist_id, musicbrainz_data):
                 life_span_ended,
                 aliases,
                 is_valid,
+                wikidata_id,
                 artist_id,
             ),
         )
@@ -458,6 +476,29 @@ def fetch_with_retries(suburl, params=None, max_retries=5, backoff_factor=1):
     return None
 
 
+def fetch_and_update_wikidata_id(artist_id, musicbrainz_artist_id):
+    """Fetch Wikidata ID for an artist and update the database."""
+    url = f"https://musicbrainz.org/ws/2/artist/{musicbrainz_artist_id}?inc=url-rels&fmt=json"
+    response = requests.get(
+        url, headers={"User-Agent": "Paula/1.0 (susanna@example.com)"}
+    )
+    if response.status_code == 200:
+        data = response.json()
+        wikidata_url = next(
+            (
+                rel["target"]
+                for rel in data.get("relations", [])
+                if "wikidata.org" in rel.get("target", "")
+            ),
+            None,
+        )
+        if wikidata_url:
+            wikidata_id = wikidata_url.split("/")[-1]  # Extract the ID from the URL
+            query = "UPDATE artists SET wikidata_id = %s WHERE artist_id = %s;"
+            execute_query(query, (wikidata_id, artist_id))
+            print(f"Updated Wikidata ID for artist {artist_id}: {wikidata_id}")
+
+
 def process_entity(
     entity_type, index, total_items, entity_id, musicbrainz_id, scope, cursor
 ):
@@ -466,7 +507,7 @@ def process_entity(
         "artist": {
             "scope_check": "artists",
             "query_type": "artist",
-            "includes": None,
+            "includes": "url-rels",
             "id_format": lambda mb_id: mb_id,  # Use musicbrainz_id directly
             "update_func": lambda cursor, entity_id, data: update_artist_metadata(
                 cursor, entity_id, data
@@ -538,7 +579,55 @@ def process_entity(
             update_item_status(entity_type, entity_id, "no_data")
 
 
+def fetch_wikidata_image(wikidata_id):
+    """Fetch the image filename from Wikidata for the given ID."""
+    url = f"https://www.wikidata.org/wiki/Special:EntityData/{wikidata_id}.json"
+    headers = {"User-Agent": "Paula/1.0 (susanna@example.com)"}
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+
+        # Navigate to the P18 property in the JSON data
+        claims = data["entities"][wikidata_id]["claims"]
+        print(claims)
+        image_filename = (
+            claims.get("P18", [{}])[0]
+            .get("mainsnak", {})
+            .get("datavalue", {})
+            .get("value")
+        )
+        return image_filename
+    except Exception as e:
+        print(f"Error fetching image for Wikidata ID {wikidata_id}: {e}")
+        return None
+
+
+def construct_commons_url(image_filename):
+    """Construct the Wikimedia Commons URL for the given image filename."""
+    image_filename = image_filename.replace(" ", "_")
+    name_hash = hashlib.md5(image_filename.encode("utf-8")).hexdigest()
+    return f"https://upload.wikimedia.org/wikipedia/commons/{name_hash[0]}/{name_hash[0:2]}/{image_filename}"
+
+
+def get_artist_image_from_wikidata(wikidata_id):
+    """Fetch and construct the image URL for an artist from Wikidata."""
+    image_filename = fetch_wikidata_image(wikidata_id)
+    if image_filename:
+        image_url = construct_commons_url(image_filename)
+        print(f"Image URL for Wikidata ID {wikidata_id}: {image_url}")
+        return image_url
+    else:
+        print(f"No image found for Wikidata ID {wikidata_id}.")
+        return None
+
+
 def run_updater(scope, retry_errors):
+
+    # image_url = get_artist_image_from_wikidata("Q1195964")
+    # print(image_url)
+    # exit()
+
     signal.signal(signal.SIGINT, signal_handler)
     """Run the MusicBrainz updater with CSV-based tracking and detailed logging."""
     logger.info("Starting MusicBrainz updater...")
