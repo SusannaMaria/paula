@@ -44,7 +44,7 @@ import logging
 
 from updater.updater_main import run_updater
 from search.search_main import run_search
-from cover.cover_main import create_mosaic
+from cover.cover_main import create_mosaic, get_album_covers
 
 
 def main():
@@ -59,6 +59,15 @@ def main():
         parser = argparse.ArgumentParser(description="Music Database Manager")
         subparsers = parser.add_subparsers(dest="command", required=True)
 
+        subparsers.add_parser("mosaic", help="Creat mosaic from cover images.")
+        cover_parser = subparsers.add_parser(
+            "cover", help="Get cover images from audio files."
+        )
+        cover_parser.add_argument(
+            "--clean",
+            action="store_true",
+            help="Remove existing cover files from path before collecting cover from audio file.",
+        )
         # Import Command
         import_parser = subparsers.add_parser(
             "import", help="Import metadata from audio files."
@@ -87,7 +96,11 @@ def main():
             required=False,
             default="all",
         )
-
+        update_parser.add_argument(
+            "--retry-errors",
+            action="store_true",
+            help="Retry files with status = 'error'.",
+        )
         # Search Command
         search_parser = subparsers.add_parser(
             "search", help="Search music in the database."
@@ -106,11 +119,13 @@ def main():
             run_import(args.directory, retry_errors=args.retry_errors)
 
         elif args.command == "update":
-            run_updater(args.type)
+            run_updater(args.type, retry_errors=args.retry_errors)
         elif args.command == "search":
             run_search(args.query)
-        elif args.command == "create_mosaic":
+        elif args.command == "mosaic":
             create_mosaic()
+        elif args.command == "cover":
+            get_album_covers(perform_action=True, remove_existing=args.clean)
         elif args.command == "backup":
             backup_file = backup_database()
             if backup_file:

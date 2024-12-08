@@ -164,3 +164,4 @@ application/import_progress.csv
 application/logs/application.log*
 application/update_progress.csv
 application/backups/*.sql
+application/mosaic.jpg

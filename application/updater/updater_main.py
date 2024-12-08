@@ -92,13 +92,19 @@ def initialize_progress_file(cursor):
             writer.writerows(entities)
 
 
-def get_pending_items():
+def get_pending_items(retry_errors):
     """Retrieve pending items from the progress file."""
     pending_items = []
+    if retry_errors:
+        status = "error"
+    else:
+        status = "pending"
+
     with open(PROGRESS_FILE, mode="r", newline="", encoding="utf-8") as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-            if row["status"] == "pending":
+
+            if row["status"] == status:
                 pending_items.append(row)
     return pending_items
 
@@ -532,7 +538,7 @@ def process_entity(
             update_item_status(entity_type, entity_id, "no_data")
 
 
-def run_updater(scope):
+def run_updater(scope, retry_errors):
     signal.signal(signal.SIGINT, signal_handler)
     """Run the MusicBrainz updater with CSV-based tracking and detailed logging."""
     logger.info("Starting MusicBrainz updater...")
@@ -543,7 +549,7 @@ def run_updater(scope):
     logger.info(f"Initialized or verified progress file: {PROGRESS_FILE}")
 
     # Fetch pending items
-    pending_items = get_pending_items()
+    pending_items = get_pending_items(retry_errors)
     total_items = len(pending_items)
     logger.info(f"Found {total_items} items to update.")
 
