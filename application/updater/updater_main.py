@@ -243,6 +243,10 @@ def update_artist_metadata(cursor, artist_id, musicbrainz_data):
                 artist_id,
             ),
         )
+        if wikidata_id:
+            image_url = get_artist_image_from_wikidata(wikidata_id)
+            if image_url:
+                download_image_to_artist_folder(image_url, wikidata_id)
     else:
         # Mark as invalid if no data is available
         query = """
@@ -449,7 +453,7 @@ def fetch_with_retries(suburl, params=None, max_retries=5, backoff_factor=1):
         Response: The HTTP response object if successful.
         None: If all retries fail.
     """
-    headers = {"User-Agent": "Paula/1.0 (susanna@example.com)"}
+    headers = {"User-Agent": "Paula/1.0 (susanna@olsoni.de)"}
     base_url = "https://musicbrainz.org/ws/2"
     url = f"{base_url}/{suburl}"
     for attempt in range(1, max_retries + 1):
@@ -480,7 +484,7 @@ def fetch_and_update_wikidata_id(artist_id, musicbrainz_artist_id):
     """Fetch Wikidata ID for an artist and update the database."""
     url = f"https://musicbrainz.org/ws/2/artist/{musicbrainz_artist_id}?inc=url-rels&fmt=json"
     response = requests.get(
-        url, headers={"User-Agent": "Paula/1.0 (susanna@example.com)"}
+        url, headers={"User-Agent": "Paula/1.0 (susanna@olsoni.de)"}
     )
     if response.status_code == 200:
         data = response.json()
@@ -582,7 +586,7 @@ def process_entity(
 def fetch_wikidata_image(wikidata_id):
     """Fetch the image filename from Wikidata for the given ID."""
     url = f"https://www.wikidata.org/wiki/Special:EntityData/{wikidata_id}.json"
-    headers = {"User-Agent": "Paula/1.0 (susanna@example.com)"}
+    headers = {"User-Agent": "Paula/1.0 (susanna@olsoni.de)"}
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
@@ -619,6 +623,44 @@ def get_artist_image_from_wikidata(wikidata_id):
         return image_url
     else:
         print(f"No image found for Wikidata ID {wikidata_id}.")
+        return None
+
+
+def download_image_to_artist_folder(url, artist_name, base_folder="artists"):
+    """
+    Downloads an image from a URL and stores it in the specified artist's folder.
+
+    Args:
+        url (str): The URL of the image to download.
+        artist_name (str): The name of the artist (used for the folder).
+        base_folder (str): The base folder where artist folders are created.
+
+    Returns:
+        str: Path to the saved image, or None if download failed.
+    """
+    try:
+        # Create the artist's folder if it doesn't exist
+        artist_folder = os.path.join(base_folder, artist_name.replace(" ", "_"))
+        os.makedirs(artist_folder, exist_ok=True)
+        headers = {"User-Agent": "Paula/1.0 (susanna@olsoni.de)"}
+        # Get the image content from the URL
+        response = requests.get(url, stream=True, headers=headers)
+        response.raise_for_status()  # Raise an error for HTTP issues
+
+        # Determine the image's filename
+        filename = os.path.basename(url)
+        file_path = os.path.join(artist_folder, filename)
+
+        # Save the image to the artist's folder
+        with open(file_path, "wb") as file:
+            for chunk in response.iter_content(1024):
+                file.write(chunk)
+
+        print(f"Image successfully saved to {file_path}")
+        return file_path
+
+    except Exception as e:
+        print(f"Failed to download image: {e}")
         return None
 
 
