@@ -317,6 +317,51 @@ def update_album_metadata(cursor, album_id, musicbrainz_data):
         execute_query(cursor, query, (album_id,))
 
 
+def insert_track_features(cursor, track_id, features):
+    """
+    Insert or replace features for a track in the track_features table.
+    Deletes existing features for the given track_id before inserting new ones.
+
+    Args:
+        cursor: Database cursor.
+        track_id (int): ID of the track.
+        features (dict): Extracted feature values to insert.
+    """
+    # Delete existing entry for the track_id
+    delete_query = "DELETE FROM track_features WHERE track_id = %s;"
+    cursor.execute(delete_query, (track_id,))
+
+    # Insert new features
+    insert_query = """
+    INSERT INTO track_features (
+        track_id, danceability, female, male, genre_alternative, genre_blues, 
+        genre_electronic, genre_folkcountry, genre_funksoulrnb, genre_jazz, 
+        genre_pop, genre_raphiphop, genre_rock, genre_electronic_ambient, 
+        genre_electronic_dnb, genre_electronic_house, genre_electronic_techno, 
+        genre_electronic_trance, genre_rosamerica_cla, genre_rosamerica_dan, 
+        genre_rosamerica_hip, genre_rosamerica_jaz, genre_rosamerica_pop, 
+        genre_rosamerica_rhy, genre_rosamerica_roc, genre_rosamerica_spe, 
+        genre_tzanetakis_blu, genre_tzanetakis, genre_tzanetakis_cou, 
+        genre_tzanetakis_dis, genre_tzanetakis_hip, genre_tzanetakis_jaz, 
+        genre_tzanetakis_met, genre_tzanetakis_pop, genre_tzanetakis_reg, 
+        genre_tzanetakis_roc, ismir04_rhythm_ChaChaCha, ismir04_rhythm_Jive, 
+        ismir04_rhythm_Quickstep, ismir04_rhythm_Rumba_American, 
+        ismir04_rhythm_Rumba_International, ismir04_rhythm_Rumba_Misc, 
+        ismir04_rhythm_Samba, ismir04_rhythm_Tango, ismir04_rhythm_VienneseWaltz, 
+        ismir04_rhythm_Waltz, mood_acoustic, mood_electronic, mood_happy, 
+        mood_party, mood_relaxed, mood_sad, moods_mirex, timbre, tonal_atonal, 
+        voice_instrumental, average_loudness, dynamic_complexity, bpm, 
+        chords_key, chords_number_rate, chords_scale, danceability_low
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+              %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+              %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+              %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,%s,%s,%s,%s,%s)
+    """
+    cursor.execute(
+        insert_query, [track_id] + [features.get(key) for key in features.keys()]
+    )
+
+
 def update_track_metadata(cursor, track_id, musicbrainz_id, musicbrainz_data):
     """Update track metadata and tags in the database."""
     if musicbrainz_data:
@@ -326,10 +371,11 @@ def update_track_metadata(cursor, track_id, musicbrainz_id, musicbrainz_data):
             if track_item.get("id") == musicbrainz_id:
                 track = track_item
                 break
-        if track:
-            recording_id = track.get("id")
-            title = track.get("title")
-            length = track.get("length")
+        if track["recording"]:
+            # print(track)
+            recording_id = track["recording"].get("id")
+            title = track["recording"].get("title")
+            length = track["recording"].get("length")
             formatted_length = None
             if length:
                 minutes, seconds = divmod(length // 1000, 60)
@@ -337,21 +383,25 @@ def update_track_metadata(cursor, track_id, musicbrainz_id, musicbrainz_data):
             tags = [tag["name"] for tag in musicbrainz_data.get("tags", [])]
             is_valid = True
 
-        query = """
-            UPDATE tracks
-            SET recording_id = %s,
-                title = %s,
-                length = %s,
-                is_musicbrainz_valid = %s
-            WHERE track_id = %s;
-        """
-        execute_query(
-            cursor, query, (recording_id, title, formatted_length, is_valid, track_id)
-        )
+            update_track_metadata_with_acousticbrainz(cursor, track_id, recording_id)
 
-        # Update tags in the track_tags table
-        if tags:
-            update_track_tags(cursor, track_id, tags)
+            query = """
+                UPDATE tracks
+                SET recording_id = %s,
+                    title = %s,
+                    length = %s,
+                    is_musicbrainz_valid = %s
+                WHERE track_id = %s;
+            """
+            execute_query(
+                cursor,
+                query,
+                (recording_id, title, formatted_length, is_valid, track_id),
+            )
+
+            # Update tags in the track_tags table
+            if tags:
+                update_track_tags(cursor, track_id, tags)
     else:
         # Mark as invalid if no data is available
         query = """
@@ -438,7 +488,13 @@ def get_artist_id_from_musicbrainz(cursor, musicbrainz_artist_id):
     return result[0] if result else None
 
 
-def fetch_with_retries(suburl, params=None, max_retries=5, backoff_factor=1):
+def fetch_with_retries(
+    suburl,
+    params=None,
+    base_url="https://musicbrainz.org/ws/2",
+    max_retries=5,
+    backoff_factor=1,
+):
     """
     Fetch data from a URL with retry logic for 503 errors.
 
@@ -454,7 +510,6 @@ def fetch_with_retries(suburl, params=None, max_retries=5, backoff_factor=1):
         None: If all retries fail.
     """
     headers = {"User-Agent": "Paula/1.0 (susanna@olsoni.de)"}
-    base_url = "https://musicbrainz.org/ws/2"
     url = f"{base_url}/{suburl}"
     for attempt in range(1, max_retries + 1):
         try:
@@ -463,20 +518,20 @@ def fetch_with_retries(suburl, params=None, max_retries=5, backoff_factor=1):
             time.sleep(0.5)
             return response.json()
         except requests.exceptions.HTTPError as e:
-            if response.status_code == 503:
+            if response.status_code == 503 or response.status_code == 429:
                 wait_time = backoff_factor * (2 ** (attempt - 1))  # Exponential backoff
-                print(
-                    f"Attempt {attempt}/{max_retries} failed with 503. Retrying in {wait_time} seconds..."
+                logger.info(
+                    f"Attempt {attempt}/{max_retries} failed with {response.status_code}. Retrying in {wait_time} seconds..."
                 )
                 time.sleep(wait_time)
             else:
-                print(f"HTTP error occurred: {e}")
+                logger.error(f"HTTP error occurred: {e}")
                 break
         except requests.exceptions.RequestException as e:
-            print(f"Request failed: {e}")
+            logger.error(f"Request failed: {e}")
             break
 
-    print(f"Failed to fetch data from {url} after {max_retries} attempts.")
+    logger.error(f"Failed to fetch data from {url} after {max_retries} attempts.")
     return None
 
 
@@ -500,7 +555,7 @@ def fetch_and_update_wikidata_id(artist_id, musicbrainz_artist_id):
             wikidata_id = wikidata_url.split("/")[-1]  # Extract the ID from the URL
             query = "UPDATE artists SET wikidata_id = %s WHERE artist_id = %s;"
             execute_query(query, (wikidata_id, artist_id))
-            print(f"Updated Wikidata ID for artist {artist_id}: {wikidata_id}")
+            logger.info(f"Updated Wikidata ID for artist {artist_id}: {wikidata_id}")
 
 
 def process_entity(
@@ -594,7 +649,6 @@ def fetch_wikidata_image(wikidata_id):
 
         # Navigate to the P18 property in the JSON data
         claims = data["entities"][wikidata_id]["claims"]
-        print(claims)
         image_filename = (
             claims.get("P18", [{}])[0]
             .get("mainsnak", {})
@@ -603,7 +657,7 @@ def fetch_wikidata_image(wikidata_id):
         )
         return image_filename
     except Exception as e:
-        print(f"Error fetching image for Wikidata ID {wikidata_id}: {e}")
+        logger.error(f"Error fetching image for Wikidata ID {wikidata_id}: {e}")
         return None
 
 
@@ -619,10 +673,10 @@ def get_artist_image_from_wikidata(wikidata_id):
     image_filename = fetch_wikidata_image(wikidata_id)
     if image_filename:
         image_url = construct_commons_url(image_filename)
-        print(f"Image URL for Wikidata ID {wikidata_id}: {image_url}")
+        logger.info(f"Image URL for Wikidata ID {wikidata_id}: {image_url}")
         return image_url
     else:
-        print(f"No image found for Wikidata ID {wikidata_id}.")
+        logger.error(f"No image found for Wikidata ID {wikidata_id}.")
         return None
 
 
@@ -656,22 +710,221 @@ def download_image_to_artist_folder(url, artist_name, base_folder="artists"):
             for chunk in response.iter_content(1024):
                 file.write(chunk)
 
-        print(f"Image successfully saved to {file_path}")
+        logger.info(f"Image successfully saved to {file_path}")
         return file_path
 
     except Exception as e:
-        print(f"Failed to download image: {e}")
+        logger.error(f"Failed to download image: {e}")
         return None
 
 
+def extract_acousticbrainz_features_low(data):
+    features = {
+        "average_loudness": data.get("lowlevel", {}).get("average_loudness"),
+        "dynamic_complexity": data.get("lowlevel", {}).get("dynamic_complexity"),
+        "bpm": data.get("rhythm", {}).get("bpm"),
+        "chords_key": data.get("tonal", {}).get("chords_key"),
+        "chords_number_rate": data.get("tonal", {}).get("chords_number_rate"),
+        "chords_scale": data.get("tonal", {}).get("chords_scale"),
+        "danceability_low": data.get("rhythm", {}).get("danceability"),
+    }
+    return features
+
+
+def extract_acousticbrainz_features_high(data):
+    """
+    Extract relevant features from AcousticBrainz data.
+
+    Args:
+        data (dict): AcousticBrainz response JSON.
+
+    Returns:
+        dict: Extracted features.
+    """
+    features = {
+        "danceability": data.get("danceability", {}).get("all", {}).get("danceable"),
+        "female": data.get("gender", {}).get("all", {}).get("female"),
+        "male": data.get("gender", {}).get("all", {}).get("male"),
+        "genre_alternative": data.get("genre_dortmund", {})
+        .get("all", {})
+        .get("alternative"),
+        "genre_blues": data.get("genre_dortmund", {}).get("all", {}).get("blues"),
+        "genre_electronic": data.get("genre_dortmund", {})
+        .get("all", {})
+        .get("electronic"),
+        "genre_folkcountry": data.get("genre_dortmund", {})
+        .get("all", {})
+        .get("folkcountry"),
+        "genre_funksoulrnb": data.get("genre_dortmund", {})
+        .get("all", {})
+        .get("funksoulrnb"),
+        "genre_jazz": data.get("genre_dortmund", {}).get("all", {}).get("jazz"),
+        "genre_pop": data.get("genre_dortmund", {}).get("all", {}).get("pop"),
+        "genre_raphiphop": data.get("genre_dortmund", {})
+        .get("all", {})
+        .get("raphiphop"),
+        "genre_rock": data.get("genre_dortmund", {}).get("all", {}).get("rock"),
+        "genre_electronic_ambient": data.get("genre_electronic", {})
+        .get("all", {})
+        .get("ambient"),
+        "genre_electronic_dnb": data.get("genre_electronic", {})
+        .get("all", {})
+        .get("dnb"),
+        "genre_electronic_house": data.get("genre_electronic", {})
+        .get("all", {})
+        .get("house"),
+        "genre_electronic_techno": data.get("genre_electronic", {})
+        .get("all", {})
+        .get("techno"),
+        "genre_electronic_trance": data.get("genre_electronic", {})
+        .get("all", {})
+        .get("trance"),
+        "genre_rosamerica_cla": data.get("genre_rosamerica", {})
+        .get("all", {})
+        .get("cla"),
+        "genre_rosamerica_dan": data.get("genre_rosamerica", {})
+        .get("all", {})
+        .get("dan"),
+        "genre_rosamerica_hip": data.get("genre_rosamerica", {})
+        .get("all", {})
+        .get("hip"),
+        "genre_rosamerica_jaz": data.get("genre_rosamerica", {})
+        .get("all", {})
+        .get("jaz"),
+        "genre_rosamerica_pop": data.get("genre_rosamerica", {})
+        .get("all", {})
+        .get("pop"),
+        "genre_rosamerica_rhy": data.get("genre_rosamerica", {})
+        .get("all", {})
+        .get("rhy"),
+        "genre_rosamerica_roc": data.get("genre_rosamerica", {})
+        .get("all", {})
+        .get("roc"),
+        "genre_rosamerica_spe": data.get("genre_rosamerica", {})
+        .get("all", {})
+        .get("spe"),
+        "genre_tzanetakis_blu": data.get("genre_tzanetakis", {})
+        .get("all", {})
+        .get("blu"),
+        "genre_tzanetakis": data.get("genre_tzanetakis", {}).get("all", {}).get("cla"),
+        "genre_tzanetakis_cou": data.get("genre_tzanetakis", {})
+        .get("all", {})
+        .get("cou"),
+        "genre_tzanetakis_dis": data.get("genre_tzanetakis", {})
+        .get("all", {})
+        .get("dis"),
+        "genre_tzanetakis_hip": data.get("genre_tzanetakis", {})
+        .get("all", {})
+        .get("hip"),
+        "genre_tzanetakis_jaz": data.get("genre_tzanetakis", {})
+        .get("all", {})
+        .get("jaz"),
+        "genre_tzanetakis_met": data.get("genre_tzanetakis", {})
+        .get("all", {})
+        .get("met"),
+        "genre_tzanetakis_pop": data.get("genre_tzanetakis", {})
+        .get("all", {})
+        .get("pop"),
+        "genre_tzanetakis_reg": data.get("genre_tzanetakis", {})
+        .get("all", {})
+        .get("reg"),
+        "genre_tzanetakis_roc": data.get("genre_tzanetakis", {})
+        .get("all", {})
+        .get("roc"),
+        "ismir04_rhythm_ChaChaCha": data.get("ismir04_rhythm", {})
+        .get("all", {})
+        .get("ChaChaCha"),
+        "ismir04_rhythm_Jive": data.get("ismir04_rhythm", {})
+        .get("all", {})
+        .get("Jive"),
+        "ismir04_rhythm_Quickstep": data.get("ismir04_rhythm", {})
+        .get("all", {})
+        .get("Quickstep"),
+        "ismir04_rhythm_Rumba_American": data.get("ismir04_rhythm", {})
+        .get("all", {})
+        .get("Rumba-American"),
+        "ismir04_rhythm_Rumba_International": data.get("ismir04_rhythm", {})
+        .get("all", {})
+        .get("Rumba-International"),
+        "ismir04_rhythm_Rumba_Misc": data.get("ismir04_rhythm", {})
+        .get("all", {})
+        .get("Rumba-Misc"),
+        "ismir04_rhythm_Samba": data.get("ismir04_rhythm", {})
+        .get("all", {})
+        .get("Samba"),
+        "ismir04_rhythm_Tango": data.get("ismir04_rhythm", {})
+        .get("all", {})
+        .get("Tango"),
+        "ismir04_rhythm_VienneseWaltz": data.get("ismir04_rhythm", {})
+        .get("all", {})
+        .get("VienneseWaltz"),
+        "ismir04_rhythm_Waltz": data.get("ismir04_rhythm", {})
+        .get("all", {})
+        .get("Waltz"),
+        "mood_acoustic": data.get("mood_acoustic", {}).get("all", {}).get("acoustic"),
+        "mood_electronic": data.get("mood_electronic", {})
+        .get("all", {})
+        .get("electronic"),
+        "mood_happy": data.get("mood_happy", {}).get("all", {}).get("happy"),
+        "mood_party": data.get("mood_party", {}).get("all", {}).get("party"),
+        "mood_relaxed": data.get("mood_relaxed", {}).get("all", {}).get("relaxed"),
+        "mood_sad": data.get("mood_sad", {}).get("all", {}).get("sad"),
+        "moods_mirex": data.get("moods_mirex", {}).get("all", {}).get("mirex"),
+        "timbre": data.get("timbre", {}).get("all", {}).get("bright"),
+        "tonal_atonal": data.get("tonal_atonal", {}).get("all", {}).get("atonal"),
+        "voice_instrumental": data.get("voice_instrumental", {})
+        .get("all", {})
+        .get("instrumental"),
+    }
+    return features
+
+
+def fetch_acousticbrainz_data_high(recording_id):
+    """Fetch AcousticBrainz data for a given recording ID."""
+    url = f"https://acousticbrainz.org/{recording_id}"
+    try:
+        data = fetch_with_retries("high-level", None, url)
+        features = extract_acousticbrainz_features_high(data.get("highlevel", {}))
+        return features
+    except Exception as e:
+        logger.error(f"Error fetching AcousticBrainz data for {recording_id}: {e}")
+        return None
+
+
+def fetch_acousticbrainz_data_low(recording_id):
+    """Fetch AcousticBrainz data for a given recording ID."""
+    url = f"https://acousticbrainz.org/{recording_id}"
+    try:
+        data = fetch_with_retries("low-level", None, url)
+        features = extract_acousticbrainz_features_low(data)
+        return features
+    except Exception as e:
+        logger.error(f"Error fetching AcousticBrainz data for {recording_id}: {e}")
+        return None
+
+
+def update_track_metadata_with_acousticbrainz(
+    cursor, track_id, musicbrainz_release_track_id
+):
+    """Update track metadata with data from MusicBrainz and AcousticBrainz."""
+    # Fetch AcousticBrainz data
+    acousticbrainz_features_high = fetch_acousticbrainz_data_high(
+        musicbrainz_release_track_id
+    )
+    acousticbrainz_features_low = fetch_acousticbrainz_data_low(
+        musicbrainz_release_track_id
+    )
+    if acousticbrainz_features_high and acousticbrainz_features_low:
+        acousticbrainz_features = (
+            acousticbrainz_features_high | acousticbrainz_features_low
+        )
+        insert_track_features(cursor, track_id, acousticbrainz_features)
+
+
 def run_updater(scope, retry_errors):
-
-    # image_url = get_artist_image_from_wikidata("Q1195964")
-    # print(image_url)
-    # exit()
-
-    signal.signal(signal.SIGINT, signal_handler)
     """Run the MusicBrainz updater with CSV-based tracking and detailed logging."""
+    signal.signal(signal.SIGINT, signal_handler)
+
     logger.info("Starting MusicBrainz updater...")
     cursor = create_cursor()
 
