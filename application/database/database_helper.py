@@ -68,7 +68,7 @@ def commit():
 
 def clean_tables():
     query = """
-    TRUNCATE TABLE tags, tracks, albums, artists, import_progress RESTART IDENTITY CASCADE;
+    TRUNCATE TABLE albums,albums,artist_relationships,artist_tags,artists,import_progress,tags,track_features,track_tags,tracks RESTART IDENTITY CASCADE;
     """
     cursor = conn.cursor()
     try:
