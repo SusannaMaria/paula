@@ -37,6 +37,7 @@ from database.database_helper import (
     close_cursor,
     commit,
     create_cursor,
+    get_connection,
     insert_artist,
     insert_album,
     insert_track,
@@ -62,6 +63,8 @@ FIELD_MAP = {
 }
 
 stop_import = False
+
+conn = get_connection()
 
 
 # Signal handler for graceful interruption
@@ -368,7 +371,6 @@ def get_error_files(max_retries=3):
 
 def run_import(directory, retry_errors=False):
     signal.signal(signal.SIGINT, signal_handler)
-
     logger.info(f"Starting import from directory: {directory}")
 
     # Initialize or retrieve files

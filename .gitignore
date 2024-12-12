@@ -165,3 +165,6 @@ application/update_progress.csv
 application/backups/*.sql
 application/mosaic.jpg
 application/artists/**/*
+application/database/paula.sqlite
+application/database/paula.sqlite-journal
+application/backups/paula_backup_*.sqlite

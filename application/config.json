@@ -1,9 +1,7 @@
 {
     "database": {
-        "dbname": "paula_db",
-        "user": "paula_user",
-        "password": "test1234",
-        "host": "localhost"
+        "path": "database/paula.sqlite",
+        "dbname": "paula"
     },
     "application": {
         "log_level": "INFO",
