@@ -367,11 +367,15 @@ def update_track_metadata(cursor, track_id, musicbrainz_id, musicbrainz_data):
     if musicbrainz_data:
         # Extract and update fields
         track = None
-        for track_item in musicbrainz_data["releases"][0]["media"][0]["tracks"]:
-            if track_item.get("id") == musicbrainz_id:
-                track = track_item
+        for media in musicbrainz_data["releases"][0]["media"]:
+            for track_item in media["tracks"]:
+                if track_item.get("id") == musicbrainz_id:
+                    track = track_item
+                    break
+            if track:
                 break
-        if track["recording"]:
+
+        if track and "recording" in track:
             # print(track)
             recording_id = track["recording"].get("id")
             title = track["recording"].get("title")
@@ -382,7 +386,6 @@ def update_track_metadata(cursor, track_id, musicbrainz_id, musicbrainz_data):
                 formatted_length = f"{minutes}:{seconds:02d}"
             tags = [tag["name"] for tag in musicbrainz_data.get("tags", [])]
             is_valid = True
-
             update_track_metadata_with_acousticbrainz(cursor, track_id, recording_id)
 
             query = """
