@@ -26,6 +26,7 @@
     THE SOFTWARE.
 """
 
+from logging import config
 import requests
 import time
 import logging
@@ -61,17 +62,34 @@ def signal_handler(sig, frame):
     stop_update = True
 
 
-def initialize_progress_file(cursor):
+def initialize_progress_file(cursor, filter_invalid=True):
     """Initialize the progress file if it doesn't exist."""
     if not os.path.exists(PROGRESS_FILE):
         entities = []
 
+        # Conditionally add filter to queries
+        condition = (
+            ""
+            if filter_invalid
+            else "WHERE is_musicbrainz_valid IS FALSE OR is_musicbrainz_valid IS NULL"
+        )
+
         # Fetch artists, albums, and tracks with MusicBrainz IDs
-        for entity_type, query in [
-            ("artist", "SELECT artist_id, musicbrainz_artist_id FROM artists"),
-            ("album", "SELECT album_id, musicbrainz_album_id FROM albums"),
-            ("track", "SELECT track_id, musicbrainz_release_track_id FROM tracks"),
+        for entity_type, query_template in [
+            (
+                "artist",
+                "SELECT artist_id, musicbrainz_artist_id FROM artists {condition}",
+            ),
+            (
+                "album",
+                "SELECT album_id, musicbrainz_album_id FROM albums {condition}",
+            ),
+            (
+                "track",
+                "SELECT track_id, musicbrainz_release_track_id FROM tracks {condition}",
+            ),
         ]:
+            query = query_template.format(condition=condition)
             result = execute_query(cursor, query, fetch_all=True)
             for row in result:
                 entities.append(
@@ -512,7 +530,7 @@ def fetch_with_retries(
         Response: The HTTP response object if successful.
         None: If all retries fail.
     """
-    headers = {"User-Agent": "Paula/1.0 (susanna@olsoni.de)"}
+    headers = config["musicbrainz"]["headers"]
     url = f"{base_url}/{suburl}"
     for attempt in range(1, max_retries + 1):
         try:
@@ -541,9 +559,8 @@ def fetch_with_retries(
 def fetch_and_update_wikidata_id(artist_id, musicbrainz_artist_id):
     """Fetch Wikidata ID for an artist and update the database."""
     url = f"https://musicbrainz.org/ws/2/artist/{musicbrainz_artist_id}?inc=url-rels&fmt=json"
-    response = requests.get(
-        url, headers={"User-Agent": "Paula/1.0 (susanna@olsoni.de)"}
-    )
+    headers = config["musicbrainz"]["headers"]
+    response = requests.get(url, headers=headers)
     if response.status_code == 200:
         data = response.json()
         wikidata_url = next(
@@ -644,7 +661,7 @@ def process_entity(
 def fetch_wikidata_image(wikidata_id):
     """Fetch the image filename from Wikidata for the given ID."""
     url = f"https://www.wikidata.org/wiki/Special:EntityData/{wikidata_id}.json"
-    headers = {"User-Agent": "Paula/1.0 (susanna@olsoni.de)"}
+    headers = config["musicbrainz"]["headers"]
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
@@ -699,7 +716,7 @@ def download_image_to_artist_folder(url, artist_name, base_folder="artists"):
         # Create the artist's folder if it doesn't exist
         artist_folder = os.path.join(base_folder, artist_name.replace(" ", "_"))
         os.makedirs(artist_folder, exist_ok=True)
-        headers = {"User-Agent": "Paula/1.0 (susanna@olsoni.de)"}
+        headers = config["musicbrainz"]["headers"]
         # Get the image content from the URL
         response = requests.get(url, stream=True, headers=headers)
         response.raise_for_status()  # Raise an error for HTTP issues
@@ -924,7 +941,7 @@ def update_track_metadata_with_acousticbrainz(
         insert_track_features(cursor, track_id, acousticbrainz_features)
 
 
-def run_updater(scope, retry_errors):
+def run_updater(scope, retry_errors, update_valid_entries):
     """Run the MusicBrainz updater with CSV-based tracking and detailed logging."""
     signal.signal(signal.SIGINT, signal_handler)
 
@@ -932,7 +949,7 @@ def run_updater(scope, retry_errors):
     cursor = create_cursor()
 
     # Ensure the progress file is initialized
-    initialize_progress_file(cursor)
+    initialize_progress_file(cursor, update_valid_entries)
     logger.info(f"Initialized or verified progress file: {PROGRESS_FILE}")
 
     # Fetch pending items

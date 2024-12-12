@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
     Title: Music Collection Manager
     Description: A Python application to manage and enhance a personal music collection.
@@ -101,6 +102,11 @@ def main():
             action="store_true",
             help="Retry files with status = 'error'.",
         )
+        update_parser.add_argument(
+            "--update-valid-entries",
+            action="store_true",
+            help="Update valid entries",
+        )
         # Search Command
         search_parser = subparsers.add_parser(
             "search", help="Search music in the database."
@@ -119,7 +125,11 @@ def main():
             run_import(args.directory, retry_errors=args.retry_errors)
 
         elif args.command == "update":
-            run_updater(args.type, retry_errors=args.retry_errors)
+            run_updater(
+                args.type,
+                retry_errors=args.retry_errors,
+                update_valid_entries=args.update_valid_entries,
+            )
         elif args.command == "search":
             run_search(args.query)
         elif args.command == "mosaic":

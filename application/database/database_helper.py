@@ -96,7 +96,7 @@ def backup_database(output_dir="backups"):
 
     backup_file = os.path.join(
         output_dir,
-        f"{db_config.get("dbname")}_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql",
+        f'{db_config.get("dbname")}_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.sql',
     )
 
     try:
@@ -105,7 +105,9 @@ def backup_database(output_dir="backups"):
         # Run the pg_dump command
         subprocess.run(
             [
-                r"C:\Program Files\PostgreSQL\17\bin\pg_dump.exe",
+                "pg_dump",
+                "-h",
+                db_config.get("host"),
                 "-U",
                 db_config.get("user"),
                 "-F",
@@ -128,17 +130,31 @@ def backup_database(output_dir="backups"):
 def restore_database(backup_file):
     """Restore the database using pg_restore."""
     try:
-        env = os.environ.copy()
-        env["PGPASSWORD"] = db_config.get("password")
 
+        conn = get_connection()
+        conn.close()
         # Drop and recreate the database before restoring
         subprocess.run(
-            ["dropdb", "-U", db_config.get("user"), db_config.get("dbname")],
+            [
+                "dropdb",
+                "-h",
+                db_config.get("host"),
+                "-U",
+                db_config.get("user"),
+                db_config.get("dbname"),
+            ],
             check=True,
             text=True,
         )
         subprocess.run(
-            ["createdb", "-U", db_config.get("user"), db_config.get("dbname")],
+            [
+                "createdb",
+                "-h",
+                db_config.get("host"),
+                "-U",
+                db_config.get("user"),
+                db_config.get("dbname"),
+            ],
             check=True,
             text=True,
         )
@@ -146,7 +162,9 @@ def restore_database(backup_file):
         # Run the pg_restore command
         subprocess.run(
             [
-                r"C:\Program Files\PostgreSQL\17\bin\pg_restore",
+                "pg_restore",
+                "-h",
+                db_config.get("host"),
                 "-U",
                 db_config.get("user"),
                 "-d",

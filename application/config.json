@@ -1,7 +1,7 @@
 {
     "database": {
         "dbname": "paula_db",
-        "user": "postgres",
+        "user": "paula_user",
         "password": "test1234",
         "host": "localhost"
     },
@@ -10,7 +10,9 @@
         "batch_size": 100
     },
     "musicbrainz": {
-        "user_agent": "Moose/1.0 (susanna@olsoni.de)",
+        "headers": {
+            "User-Agent": "Moose/1.0 (susanna@olsoni.de)"
+        },
         "rate_limit": 1
     }
 }
