@@ -22,6 +22,7 @@ def get_tracks_without_features(cursor):
 
 
 def run_essentia_extractor(input_file):
+    logger.info(f"analyse {input_file}")
     # Initialize the Docker client
     client = docker.from_env()
 
