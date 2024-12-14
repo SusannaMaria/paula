@@ -530,13 +530,13 @@ def execute_query_print_out(sql_query, params):
                 f"Title: {row[0]}, Artist: {row[1]}, Album: {row[2]}, Genre: {row[3]}"
             )
     except Exception as e:
-        logger.error(f"Error executing query: {e}")
+        logger.error(f"Error executing query: {sql_query} {e}")
     finally:
         cursor.close()
         conn.close()
 
 
-def execute_query(cursor, query, params=None, fetch_one=False, fetch_all=False):
+def execute_query(cursor, query, params="", fetch_one=False, fetch_all=False):
     global conn
     try:
         cursor.execute(query, params)
@@ -549,7 +549,7 @@ def execute_query(cursor, query, params=None, fetch_one=False, fetch_all=False):
         return result
     except Exception as e:
         conn.rollback()
-        print(f"Error executing query: {e}")
+        print(f"Error executing query: {query} {e}")
         return None
 
 

@@ -64,6 +64,7 @@ def main():
         cover_parser = subparsers.add_parser(
             "cover", help="Get cover images from audio files."
         )
+
         cover_parser.add_argument(
             "--clean",
             action="store_true",
@@ -107,6 +108,11 @@ def main():
             action="store_true",
             help="Update valid entries",
         )
+        update_parser.add_argument(
+            "--extract-features",
+            action="store_true",
+            help="Update valid entries",
+        )
         # Search Command
         search_parser = subparsers.add_parser(
             "search", help="Search music in the database."
@@ -129,6 +135,7 @@ def main():
                 args.type,
                 retry_errors=args.retry_errors,
                 update_valid_entries=args.update_valid_entries,
+                extract_features=args.extract_features,
             )
         elif args.command == "search":
             run_search(args.query)

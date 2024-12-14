@@ -26,10 +26,12 @@
     THE SOFTWARE.
 """
 
-from logging import config
+from pathlib import Path
 import requests
 import time
 import logging
+from updater.feature_extractor import run_essentia_extractor
+from config_loader import load_config
 from database.database_helper import (
     close_connection,
     close_cursor,
@@ -62,7 +64,7 @@ def signal_handler(sig, frame):
     stop_update = True
 
 
-def initialize_progress_file(cursor, filter_invalid=True):
+def initialize_progress_file(cursor, filter_invalid=True, extract_features=False):
     """Initialize the progress file if it doesn't exist."""
     if not os.path.exists(PROGRESS_FILE):
         entities = []
@@ -70,8 +72,8 @@ def initialize_progress_file(cursor, filter_invalid=True):
         # Conditionally add filter to queries
         condition = (
             ""
-            if filter_invalid
-            else "WHERE is_musicbrainz_valid IS FALSE OR is_musicbrainz_valid IS NULL"
+            if not filter_invalid
+            else "WHERE is_musicbrainz_valid IS 0 OR is_musicbrainz_valid IS NULL"
         )
 
         # Fetch artists, albums, and tracks with MusicBrainz IDs
@@ -90,6 +92,17 @@ def initialize_progress_file(cursor, filter_invalid=True):
             ),
         ]:
             query = query_template.format(condition=condition)
+            if extract_features:
+                if entity_type == "track":
+                    query = """
+                        SELECT t.track_id, t.musicbrainz_release_track_id
+                        FROM tracks t
+                        LEFT JOIN track_features tf ON t.track_id = tf.track_id
+                        WHERE tf.track_id IS NULL;
+                        """
+                else:
+                    continue
+
             result = execute_query(cursor, query, fetch_all=True)
             for row in result:
                 entities.append(
@@ -118,13 +131,13 @@ def get_pending_items(retry_errors):
         status = "error"
     else:
         status = "pending"
-
     with open(PROGRESS_FILE, mode="r", newline="", encoding="utf-8") as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
 
             if row["status"] == status:
                 pending_items.append(row)
+
     return pending_items
 
 
@@ -229,20 +242,21 @@ def update_artist_metadata(cursor, artist_id, musicbrainz_data):
                     -1
                 ]  # Extract the ID from the URL
         is_valid = True
-
+        aliases = ",".join(aliases)
+        print(aliases)
         query = """
             UPDATE artists
-            SET name = %s,
-                sort_name = %s,
-                type = %s,
-                begin_area = %s,
-                life_span_start = %s,
-                life_span_end = %s,
-                life_span_ended = %s,
-                aliases = %s,
-                is_musicbrainz_valid = %s,
-                wikidata_id = %s
-            WHERE artist_id = %s;
+            SET name = ?,
+                sort_name = ?,
+                type = ?,
+                begin_area = ?,
+                life_span_start = ?,
+                life_span_end = ?,
+                life_span_ended = ?,
+                aliases = ?,
+                is_musicbrainz_valid = ?,
+                wikidata_id = ?
+            WHERE artist_id = ?;
         """
         execute_query(
             cursor,
@@ -270,7 +284,7 @@ def update_artist_metadata(cursor, artist_id, musicbrainz_data):
         query = """
             UPDATE artists
             SET is_musicbrainz_valid = FALSE
-            WHERE artist_id = %s;
+            WHERE artist_id = ?;
         """
         execute_query(cursor, query, (artist_id,))
 
@@ -306,15 +320,15 @@ def update_album_metadata(cursor, album_id, musicbrainz_data):
             logger.debug((title, primary_type, secondary_types, release_date, album_id))
 
             is_valid = True
-
+        secondary_types = ",".join(secondary_types)
         query = """
             UPDATE albums
-            SET name = %s,
-                primary_type = %s,
-                secondary_types = %s,
-                release_date = %s,
-                is_musicbrainz_valid = %s
-            WHERE album_id = %s;
+            SET name = ?,
+                primary_type = ?,
+                secondary_types = ?,
+                release_date = ?,
+                is_musicbrainz_valid = ?
+            WHERE album_id = ?;
         """
         execute_query(
             cursor,
@@ -330,7 +344,7 @@ def update_album_metadata(cursor, album_id, musicbrainz_data):
         query = """
             UPDATE albums
             SET is_musicbrainz_valid = FALSE
-            WHERE album_id = %s;
+            WHERE album_id = ?;
         """
         execute_query(cursor, query, (album_id,))
 
@@ -346,7 +360,7 @@ def insert_track_features(cursor, track_id, features):
         features (dict): Extracted feature values to insert.
     """
     # Delete existing entry for the track_id
-    delete_query = "DELETE FROM track_features WHERE track_id = %s;"
+    delete_query = "DELETE FROM track_features WHERE track_id = ?;"
     cursor.execute(delete_query, (track_id,))
 
     # Insert new features
@@ -370,17 +384,19 @@ def insert_track_features(cursor, track_id, features):
         mood_party, mood_relaxed, mood_sad, moods_mirex, timbre, tonal_atonal, 
         voice_instrumental, average_loudness, dynamic_complexity, bpm, 
         chords_key, chords_number_rate, chords_scale, danceability_low
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-              %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-              %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-              %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,%s,%s,%s,%s,%s)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?)
     """
     cursor.execute(
         insert_query, [track_id] + [features.get(key) for key in features.keys()]
     )
 
 
-def update_track_metadata(cursor, track_id, musicbrainz_id, musicbrainz_data):
+def update_track_metadata(
+    cursor, track_id, musicbrainz_id, musicbrainz_data, extract_features
+):
     """Update track metadata and tags in the database."""
     if musicbrainz_data:
         # Extract and update fields
@@ -404,15 +420,17 @@ def update_track_metadata(cursor, track_id, musicbrainz_id, musicbrainz_data):
                 formatted_length = f"{minutes}:{seconds:02d}"
             tags = [tag["name"] for tag in musicbrainz_data.get("tags", [])]
             is_valid = True
-            update_track_metadata_with_acousticbrainz(cursor, track_id, recording_id)
+            update_track_metadata_with_acousticbrainz(
+                cursor, track_id, recording_id, extract_features
+            )
 
             query = """
                 UPDATE tracks
-                SET recording_id = %s,
-                    title = %s,
-                    length = %s,
-                    is_musicbrainz_valid = %s
-                WHERE track_id = %s;
+                SET recording_id = ?,
+                    title = ?,
+                    length = ?,
+                    is_musicbrainz_valid = ?
+                WHERE track_id = ?;
             """
             execute_query(
                 cursor,
@@ -428,7 +446,7 @@ def update_track_metadata(cursor, track_id, musicbrainz_id, musicbrainz_data):
         query = """
             UPDATE tracks
             SET is_musicbrainz_valid = FALSE
-            WHERE track_id = %s;
+            WHERE track_id = ?;
         """
         execute_query(query, (track_id,))
 
@@ -467,13 +485,13 @@ def fetch_artist_relationships(artist_id):
 def update_artist_tags(cursor, artist_id, tags):
     """Update tags for an artist in the database."""
     # Remove existing tags
-    execute_query(cursor, "DELETE FROM artist_tags WHERE artist_id = %s;", (artist_id,))
+    execute_query(cursor, "DELETE FROM artist_tags WHERE artist_id = ?;", (artist_id,))
 
     # Insert new tags
     for tag in tags:
         execute_query(
             cursor,
-            "INSERT INTO artist_tags (artist_id, tag) VALUES (%s, %s) ON CONFLICT DO NOTHING;",
+            "INSERT INTO artist_tags (artist_id, tag) VALUES (?, ?) ON CONFLICT DO NOTHING;",
             (artist_id, tag),
         )
 
@@ -482,7 +500,7 @@ def update_artist_relationships(cursor, artist_id, relationships):
     """Update relationships for an artist in the database."""
     # Remove existing relationships
     execute_query(
-        cursor, "DELETE FROM artist_relationships WHERE artist_id = %s;", (artist_id,)
+        cursor, "DELETE FROM artist_relationships WHERE artist_id = ?;", (artist_id,)
     )
 
     # Insert new relationships
@@ -496,7 +514,7 @@ def update_artist_relationships(cursor, artist_id, relationships):
                 cursor,
                 """
                 INSERT INTO artist_relationships (artist_id, related_artist_id, relationship_type)
-                VALUES (%s, %s, %s) ON CONFLICT DO NOTHING;
+                VALUES (?, ?, ?) ON CONFLICT DO NOTHING;
                 """,
                 (artist_id, related_artist_id, relation["relationship_type"]),
             )
@@ -504,7 +522,7 @@ def update_artist_relationships(cursor, artist_id, relationships):
 
 def get_artist_id_from_musicbrainz(cursor, musicbrainz_artist_id):
     """Get artist ID from MusicBrainz ID in the database."""
-    query = "SELECT artist_id FROM artists WHERE musicbrainz_artist_id = %s;"
+    query = "SELECT artist_id FROM artists WHERE musicbrainz_artist_id = ?;"
     result = execute_query(cursor, query, (musicbrainz_artist_id,), fetch_one=True)
     return result[0] if result else None
 
@@ -530,6 +548,7 @@ def fetch_with_retries(
         Response: The HTTP response object if successful.
         None: If all retries fail.
     """
+    config = load_config()
     headers = config["musicbrainz"]["headers"]
     url = f"{base_url}/{suburl}"
     for attempt in range(1, max_retries + 1):
@@ -559,6 +578,7 @@ def fetch_with_retries(
 def fetch_and_update_wikidata_id(artist_id, musicbrainz_artist_id):
     """Fetch Wikidata ID for an artist and update the database."""
     url = f"https://musicbrainz.org/ws/2/artist/{musicbrainz_artist_id}?inc=url-rels&fmt=json"
+    config = load_config()
     headers = config["musicbrainz"]["headers"]
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
@@ -573,14 +593,22 @@ def fetch_and_update_wikidata_id(artist_id, musicbrainz_artist_id):
         )
         if wikidata_url:
             wikidata_id = wikidata_url.split("/")[-1]  # Extract the ID from the URL
-            query = "UPDATE artists SET wikidata_id = %s WHERE artist_id = %s;"
+            query = "UPDATE artists SET wikidata_id = ? WHERE artist_id = ?;"
             execute_query(query, (wikidata_id, artist_id))
             logger.info(f"Updated Wikidata ID for artist {artist_id}: {wikidata_id}")
 
 
 def process_entity(
-    entity_type, index, total_items, entity_id, musicbrainz_id, scope, cursor
+    entity_type,
+    index,
+    total_items,
+    entity_id,
+    musicbrainz_id,
+    scope,
+    cursor,
+    extract_features,
 ):
+    config = load_config()
     """Process a single entity (artist, album, or track) based on its type."""
     entity_config = {
         "artist": {
@@ -609,7 +637,7 @@ def process_entity(
             "includes": "tags",
             "id_format": lambda mb_id: f"?track={mb_id}",  # Format for track queries
             "update_func": lambda cursor, entity_id, data: update_track_metadata(
-                cursor, entity_id, musicbrainz_id, data
+                cursor, entity_id, musicbrainz_id, data, extract_features
             ),
             "success_log": f"Successfully updated track ID {entity_id}",
         },
@@ -661,6 +689,7 @@ def process_entity(
 def fetch_wikidata_image(wikidata_id):
     """Fetch the image filename from Wikidata for the given ID."""
     url = f"https://www.wikidata.org/wiki/Special:EntityData/{wikidata_id}.json"
+    config = load_config()
     headers = config["musicbrainz"]["headers"]
     try:
         response = requests.get(url, headers=headers)
@@ -716,6 +745,7 @@ def download_image_to_artist_folder(url, artist_name, base_folder="artists"):
         # Create the artist's folder if it doesn't exist
         artist_folder = os.path.join(base_folder, artist_name.replace(" ", "_"))
         os.makedirs(artist_folder, exist_ok=True)
+        config = load_config()
         headers = config["musicbrainz"]["headers"]
         # Get the image content from the URL
         response = requests.get(url, stream=True, headers=headers)
@@ -923,25 +953,49 @@ def fetch_acousticbrainz_data_low(recording_id):
         return None
 
 
+def get_audio_path_from_track_id(cursor, track_id):
+    query = f"SELECT path FROM tracks WHERE track_id IS {track_id};"
+    results = execute_query(cursor, query, params="", fetch_one=False, fetch_all=True)
+
+    paths = [row[0] for row in results]
+
+    if paths:
+        return Path(paths[0])
+
+
 def update_track_metadata_with_acousticbrainz(
-    cursor, track_id, musicbrainz_release_track_id
+    cursor, track_id, musicbrainz_release_track_id, extract_features
 ):
     """Update track metadata with data from MusicBrainz and AcousticBrainz."""
     # Fetch AcousticBrainz data
-    acousticbrainz_features_high = fetch_acousticbrainz_data_high(
-        musicbrainz_release_track_id
-    )
-    acousticbrainz_features_low = fetch_acousticbrainz_data_low(
-        musicbrainz_release_track_id
-    )
-    if acousticbrainz_features_high and acousticbrainz_features_low:
-        acousticbrainz_features = (
-            acousticbrainz_features_high | acousticbrainz_features_low
+
+    if not extract_features:
+
+        acousticbrainz_features_high = fetch_acousticbrainz_data_high(
+            musicbrainz_release_track_id
         )
-        insert_track_features(cursor, track_id, acousticbrainz_features)
+        acousticbrainz_features_low = fetch_acousticbrainz_data_low(
+            musicbrainz_release_track_id
+        )
+        if acousticbrainz_features_high and acousticbrainz_features_low:
+            acousticbrainz_features = (
+                acousticbrainz_features_high | acousticbrainz_features_low
+            )
+            insert_track_features(cursor, track_id, acousticbrainz_features)
+    else:
+        audio_path = get_audio_path_from_track_id(cursor, track_id)
+        feature_raw_data = run_essentia_extractor(audio_path)
+        feature_data_high = extract_acousticbrainz_features_high(
+            feature_raw_data.get("highlevel", {})
+        )
+        features_data_low = extract_acousticbrainz_features_low(feature_raw_data)
+
+        if feature_data_high and features_data_low:
+            features_data = {**feature_data_high, **features_data_low}
+            insert_track_features(cursor, track_id, features_data)
 
 
-def run_updater(scope, retry_errors, update_valid_entries):
+def run_updater(scope, retry_errors, update_valid_entries, extract_features):
     """Run the MusicBrainz updater with CSV-based tracking and detailed logging."""
     signal.signal(signal.SIGINT, signal_handler)
 
@@ -949,7 +1003,8 @@ def run_updater(scope, retry_errors, update_valid_entries):
     cursor = create_cursor()
 
     # Ensure the progress file is initialized
-    initialize_progress_file(cursor, update_valid_entries)
+    initialize_progress_file(cursor, update_valid_entries, extract_features)
+
     logger.info(f"Initialized or verified progress file: {PROGRESS_FILE}")
 
     # Fetch pending items
@@ -967,7 +1022,14 @@ def run_updater(scope, retry_errors, update_valid_entries):
         musicbrainz_id = item["musicbrainz_id"]
 
         process_entity(
-            entity_type, index, total_items, entity_id, musicbrainz_id, scope, cursor
+            entity_type,
+            index,
+            total_items,
+            entity_id,
+            musicbrainz_id,
+            scope,
+            cursor,
+            extract_features,
         )
 
     close_cursor(cursor)
