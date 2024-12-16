@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 import numpy as np
 import os
+from similarity.html_utils import inject_context_menu
 from search.search_main import create_search_query
 from utils.config_loader import load_config
 from database.database_helper import (
@@ -14,6 +15,8 @@ from database.database_helper import (
     execute_query,
     get_track_by_id,
 )
+from pyvis.network import Network
+import networkx as nx
 from annoy import AnnoyIndex
 import numpy as np
 from scipy.spatial.distance import cosine
@@ -125,16 +128,23 @@ def precompute_features(cursor):
         MIN(mood_party), MAX(mood_party),
         MIN(genre_rock), MAX(genre_rock),
         MIN(genre_pop), MAX(genre_pop),
+        MIN(genre_raphiphop), MAX(genre_raphiphop),
         MIN(genre_jazz), MAX(genre_jazz),
         MIN(genre_electronic), MAX(genre_electronic),
         MIN(dynamic_complexity), MAX(dynamic_complexity),
-        MIN(voice_instrumental), MAX(voice_instrumental)
+        MIN(voice_instrumental), MAX(voice_instrumental),
+        MIN(female), MAX(female),
+        MIN(genre_alternative), MAX(genre_alternative),
+        MIN(mood_relaxed), MAX(mood_relaxed),
+        MIN(mood_sad), MAX(mood_sad)
     FROM track_features;
     """
 
     feature_query = """
     SELECT track_id, danceability, bpm, average_loudness, mood_happy, mood_party,
-           genre_rock, genre_pop, genre_jazz, genre_electronic, dynamic_complexity,voice_instrumental
+           genre_rock, genre_pop, genre_raphiphop, genre_jazz, genre_electronic, 
+           dynamic_complexity,voice_instrumental,female,genre_alternative,
+           mood_relaxed,mood_sad
     FROM track_features;
     """
 
@@ -410,7 +420,8 @@ def search_similar_tracks(query_track_id, track_features, num_results=5):
         for other_track_id, distance in zip(track_ids, distances)
         if other_track_id != query_track_id
     ]
-    return filtered_similar_tracks
+
+    return filtered_similar_tracks[::-1]
 
 
 def open_in_player(playlist_path):
@@ -482,10 +493,35 @@ def print_track(track, print_path=False, is_similary=False):
     )
 
 
+def getnode(net, track, distance, from_node_id, is_similary=False):
+
+    if is_similary:
+        col = "#ff5733"
+    else:
+        col = "#ADD8E6"
+
+    net.add_node(
+        track["track_id"],
+        label=track["track_title"],
+        shape="dot",
+        size=15,
+        color=col,
+        title=(
+            track["track_title"][:17] + "..."
+            if len(track["track_title"]) > 20
+            else track["track_title"]
+        ),
+    )
+    if from_node_id != track["track_id"]:
+        net.add_edge(
+            from_node_id, track["track_id"], weight=distance, width=5, color="#aaaaaa"
+        )
+
+
 def run_similarity(do_normalize, input_query):
     config = load_config()
     temp_dir = Path(config["temp_dir"])
-
+    net = Network(height="750px", width="100%", notebook=False)
     cursor = create_cursor(asrow=True)
     if do_normalize:
         precompute_features(cursor)
@@ -509,6 +545,7 @@ def run_similarity(do_normalize, input_query):
 
             main_track = get_track_by_id(cursor, track[0])
             file_paths.append(main_track["title_path"])
+            getnode(net, main_track, 1.0, main_track["track_id"], is_similary=False)
 
             print_track(main_track, print_path=False)
             for sim_track in similar_tracks:
@@ -516,9 +553,29 @@ def run_similarity(do_normalize, input_query):
 
                 print_track(sim_track_result, print_path=False, is_similary=True)
                 file_paths.append(sim_track_result["title_path"])
+                getnode(
+                    net,
+                    sim_track_result,
+                    sim_track[1],
+                    main_track["track_id"],
+                    is_similary=True,
+                )
 
         playlist_path = temp_dir / "paula_playlist.m3u"
         create_m3u_playlist(file_paths, playlist_path)
         open_in_player(playlist_path)
         close_cursor(cursor)
         close_connection()
+        # Customize appearance
+        net.repulsion(
+            node_distance=120, central_gravity=0.33, spring_length=100, damping=0.95
+        )
+        # Save and open the interactive HTML file
+        html_content = net.generate_html()
+
+        # Inject the context menu script into the generated HTML
+        modified_html = inject_context_menu(html_content)
+
+        # Save the modified HTML
+        with open("track_similarity_graph.html", "w", encoding="utf-8") as f:
+            f.write(modified_html)

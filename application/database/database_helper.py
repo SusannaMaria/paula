@@ -465,6 +465,7 @@ def insert_album(
 
 def get_track_by_id(cursor, track_id):
     SQL_QUERY = """SELECT 
+            t.track_id AS track_id,
             t.title AS track_title, 
             a.name AS artist_name, 
             al.name AS album_name,
