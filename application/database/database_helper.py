@@ -461,6 +461,29 @@ def insert_album(
         sys.exit(1)
 
 
+def get_track_by_id(cursor, track_id):
+    SQL_QUERY = """SELECT 
+            t.title AS track_title, 
+            a.name AS artist_name, 
+            al.name AS album_name
+        FROM 
+            tracks t
+        JOIN 
+            artists a ON t.artist_id = a.artist_id
+        JOIN 
+            albums al ON t.album_id = al.album_id
+        WHERE 
+            t.track_id = ?;"""
+
+    cursor.execute(
+        SQL_QUERY,
+        (track_id,),
+    )
+
+    result = cursor.fetchone()
+    return result
+
+
 # Example: Insert track
 def insert_track(
     cursor,

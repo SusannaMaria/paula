@@ -66,7 +66,7 @@ def build_sql_query(conditions, logical_operator):
     params = []
 
     for field, value in conditions:
-        where_clauses.append(f"{field} ILIKE %s")
+        where_clauses.append(f"{field} LIKE ?")
         params.append(f"%{value}%")
 
     where_clause = f" {logical_operator} ".join(where_clauses)

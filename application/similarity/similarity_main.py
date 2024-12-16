@@ -3,7 +3,12 @@ import sqlite3
 import numpy as np
 from search.search_main import create_search_query
 from config_loader import load_config
-from database.database_helper import commit, create_cursor, execute_query
+from database.database_helper import (
+    commit,
+    create_cursor,
+    execute_query,
+    get_track_by_id,
+)
 from annoy import AnnoyIndex
 
 
@@ -21,27 +26,25 @@ def precompute_features(cursor):
         MIN(genre_rock), MAX(genre_rock),
         MIN(genre_pop), MAX(genre_pop),
         MIN(genre_jazz), MAX(genre_jazz),
-        MIN(genre_electronic), MAX(genre_electronic)
+        MIN(genre_electronic), MAX(genre_electronic),
+        MIN(dynamic_complexity), MAX(dynamic_complexity),
+        MIN(voice_instrumental), MAX(voice_instrumental)
     FROM track_features;
     """
 
     feature_query = """
     SELECT track_id, danceability, bpm, average_loudness, mood_happy, mood_party,
-           genre_rock, genre_pop, genre_jazz, genre_electronic
+           genre_rock, genre_pop, genre_jazz, genre_electronic, dynamic_complexity,voice_instrumental
     FROM track_features;
     """
 
     # Fetch min and max values for normalization
-    min_max = cursor.execute_query(
-        cursor, min_max_query, fetch_one=True, fetch_all=False
-    )
+    min_max = execute_query(cursor, min_max_query, fetch_one=True, fetch_all=False)
     min_vals = min_max[::2]
     max_vals = min_max[1::2]
 
     # Fetch features for all tracks
-    tracks = cursor.execute_query(
-        cursor, feature_query, fetch_one=False, fetch_all=True
-    )
+    tracks = execute_query(cursor, feature_query, fetch_one=False, fetch_all=True)
 
     # Normalize and store features
     for track in tracks:
@@ -66,10 +69,12 @@ def build_ann_index(cursor):
     num_trees = config["annoy_index"]["num_trees"]
 
     # Define the number of features (dimension)
-    feature_dim = 10  # Replace with the actual number of features
+    feature_dim = config["annoy_index"][
+        "feature_dim"
+    ]  # Replace with the actual number of features
     index = AnnoyIndex(feature_dim, metric="euclidean")
 
-    features = cursor.execute_query(
+    features = execute_query(
         cursor,
         "SELECT track_id, normalized_features FROM track_features;",
         fetch_one=False,
@@ -110,33 +115,12 @@ def search_similar_tracks(track_features, num_results=5):
     index_path = config["annoy_index"]["path"]
     feature_dim = config["annoy_index"]["feature_dim"]
 
-    feature_dim = 10  # Replace with the actual number of features
     index = AnnoyIndex(feature_dim, metric="euclidean")
     index.load(index_path)
-
     similar_tracks = index.get_nns_by_vector(
         track_features, num_results, include_distances=True
     )
     return similar_tracks
-
-
-# # Example usage
-# track_features = [
-#     0.8,
-#     0.7,
-#     0.6,
-#     0.5,
-#     0.4,
-#     0.3,
-#     0.2,
-#     0.1,
-#     0.05,
-#     0.9,
-# ]  # Replace with actual features
-
-# normalized_features = normalize_features(raw_track_features, min_vals, max_vals)
-# similar_tracks = search_similar_tracks("tracks.ann", track_features)
-# print("Similar Tracks:", similar_tracks)
 
 
 def run_similarity(do_normalize, input_query):
@@ -144,19 +128,20 @@ def run_similarity(do_normalize, input_query):
     if do_normalize:
         precompute_features(cursor)
         build_ann_index(cursor)
-
-    sql_query, params = create_search_query(input_query)
-    tracks = cursor.execute_query(
-        cursor, sql_query, params=params, fetch_one=False, fetch_all=True
-    )
-    for track in tracks:
-        features_json = cursor.execute_query(
-            cursor,
-            "SELECT track_id, normalized_features FROM track_features WHERE track_id=?;",
-            (track.get("track_id")),
-            fetch_one=True,
-            fetch_all=False,
+    else:
+        sql_query, params = create_search_query(input_query)
+        tracks = execute_query(
+            cursor, sql_query, params=params, fetch_one=False, fetch_all=True
         )
-        track_features = json.loads(features_json)
-        similar_tracks = search_similar_tracks("tracks.ann", track_features)
-        print("Similar Tracks:", similar_tracks)
+        for track in tracks:
+            features_json = execute_query(
+                cursor,
+                f"SELECT track_id, normalized_features FROM track_features WHERE track_id={track[0]};",
+                fetch_one=True,
+                fetch_all=False,
+            )
+            track_features = json.loads(features_json[1])
+            similar_tracks = search_similar_tracks(track_features)
+            print(f"{get_track_by_id(cursor, track[0])}")
+            for sim_track in similar_tracks[0]:
+                print(f"-->{get_track_by_id(cursor, sim_track)}")
