@@ -508,7 +508,7 @@ def run_similarity(do_normalize, input_query):
             main_track = get_track_by_id(cursor, track[0])
             file_paths.append(main_track["title_path"])
 
-            print_track(main_track, print_path=True)
+            print_track(main_track, print_path=False)
             for sim_track in similar_tracks:
                 sim_track_result = get_track_by_id(cursor, sim_track[0])
 
