@@ -1,5 +1,6 @@
 import json
 import logging
+from pathlib import Path
 import sqlite3
 import numpy as np
 import os
@@ -19,6 +20,7 @@ from scipy.spatial.distance import cosine
 from collections import defaultdict
 from multiprocessing import Pool, Value, Lock
 from colorama import Fore, Style, init
+import subprocess
 
 init(autoreset=True)
 
@@ -411,19 +413,77 @@ def search_similar_tracks(query_track_id, track_features, num_results=5):
     return filtered_similar_tracks
 
 
-def print_track(track, is_similary=False):
+def open_in_foobar2000(playlist_path):
+    """
+    Open the generated M3U playlist in Foobar2000.
+
+    Args:
+        playlist_path (str): Full path to the playlist file.
+    """
+    try:
+        playlist_path = (
+            str(playlist_path)
+            .replace("/mnt/", "")
+            .replace("/", "\\")
+            .replace("\\", ":\\", 1)
+        )
+        subprocess.run(
+            ["cmd.exe", "/c", f'start foobar2000 "{playlist_path}"'],
+            check=True,
+            stdout=subprocess.DEVNULL,  # Suppress standard output
+            stderr=subprocess.DEVNULL,  # Suppress standard error
+        )
+        logger.info(f"Playlist opened in Foobar2000: {playlist_path}")
+    except subprocess.CalledProcessError as e:
+        logger.info(f"Failed to open playlist in Foobar2000: {e}")
+
+
+def create_m3u_playlist(file_paths, playlist_path):
+    """
+    Create an M3U playlist file from a list of file paths.
+
+    Args:
+        file_paths (list): List of file paths to songs.
+        playlist_path (str): Path to save the playlist file.
+    """
+    with open(playlist_path, "w", encoding="utf-8") as playlist:
+        # Write M3U header
+        playlist.write("#EXTM3U\n")
+
+        for path in file_paths:
+            # You can add song duration and title if available
+            if path.startswith("/mnt/"):
+                path = (
+                    path.replace("/mnt/", "").replace("/", "\\").replace("\\", ":\\", 1)
+                )
+            playlist.write(f"{path}\n")
+
+    logger.info(f"Playlist saved to {playlist_path}")
+
+
+def print_track(track, print_path=False, is_similary=False):
     prefix = ""
+    path_str = ""
+
     if is_similary:
         prefix = "-> "
+
+    if print_path:
+        path_str = (
+            f' | {Style.BRIGHT + Fore.RED}"{track["title_path"]}"{Style.RESET_ALL}'
+        )
 
     print(
         f'{prefix}{Style.BRIGHT + Fore.YELLOW}"{track["track_title"]}"{Style.RESET_ALL} '
         f'from {Style.BRIGHT + Fore.GREEN}"{track["artist_name"]}"{Style.RESET_ALL} '
-        f'out of {Style.BRIGHT + Fore.CYAN}"{track["album_name"]}"'
+        f'out of {Style.BRIGHT + Fore.CYAN}"{track["album_name"]}"{Style.RESET_ALL}{path_str}'
     )
 
 
 def run_similarity(do_normalize, input_query):
+    config = load_config()
+    temp_dir = Path(config["temp_dir"])
+
     cursor = create_cursor(asrow=True)
     if do_normalize:
         precompute_features(cursor)
@@ -434,6 +494,7 @@ def run_similarity(do_normalize, input_query):
         tracks = execute_query(
             cursor, sql_query, params=params, fetch_one=False, fetch_all=True
         )
+        file_paths = []
         for track in tracks:
             features_json = execute_query(
                 cursor,
@@ -445,11 +506,17 @@ def run_similarity(do_normalize, input_query):
             similar_tracks = search_similar_tracks(track[0], track_features, 10)
 
             main_track = get_track_by_id(cursor, track[0])
+            file_paths.append(main_track["title_path"])
 
-            print_track(main_track)
+            print_track(main_track, print_path=True)
             for sim_track in similar_tracks:
                 sim_track_result = get_track_by_id(cursor, sim_track[0])
 
-                print_track(sim_track_result, True)
+                print_track(sim_track_result, print_path=False, is_similary=True)
+                file_paths.append(sim_track_result["title_path"])
+
+        playlist_path = temp_dir / "paula_playlist.m3u"
+        create_m3u_playlist(file_paths, playlist_path)
+        open_in_foobar2000(playlist_path)
         close_cursor(cursor)
         close_connection()

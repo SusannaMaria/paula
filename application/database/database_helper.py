@@ -467,7 +467,9 @@ def get_track_by_id(cursor, track_id):
     SQL_QUERY = """SELECT 
             t.title AS track_title, 
             a.name AS artist_name, 
-            al.name AS album_name
+            al.name AS album_name,
+            t.path as title_path
+
         FROM 
             tracks t
         JOIN 

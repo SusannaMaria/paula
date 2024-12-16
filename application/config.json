@@ -17,5 +17,6 @@
         "path": "similarity/tracks.ann",
         "num_trees": 12,
         "feature_dim": 11
-    }
+    },
+    "temp_dir": "/mnt/c/Users/susan/AppData/Local/Temp"
 }
