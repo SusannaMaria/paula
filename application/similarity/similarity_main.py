@@ -1,6 +1,8 @@
 import json
+import logging
 import sqlite3
 import numpy as np
+import os
 from search.search_main import create_search_query
 from config_loader import load_config
 from database.database_helper import (
@@ -15,6 +17,24 @@ from annoy import AnnoyIndex
 import numpy as np
 from scipy.spatial.distance import cosine
 from collections import defaultdict
+from multiprocessing import Pool, Value, Lock
+from colorama import Fore, Style, init
+
+init(autoreset=True)
+
+# Define a global shared counter
+shared_counter = None
+counter_lock = None
+
+logger = logging.getLogger(__name__)
+
+
+def init_worker(counter, lock):
+    """Initialize the shared counter for each worker."""
+    global shared_counter
+    global counter_lock
+    shared_counter = counter
+    counter_lock = lock
 
 
 def group_similar_tracks_by_artist_or_album(cursor, similarity_threshold=0.8):
@@ -40,7 +60,7 @@ def group_similar_tracks_by_artist_or_album(cursor, similarity_threshold=0.8):
         al2.name AS album_2,
         s.similarity_score
     FROM
-        similarity s
+        track_similarity s
     JOIN tracks t1 ON s.track_id_1 = t1.track_id
     JOIN artists a1 ON t1.artist_id = a1.artist_id
     JOIN albums al1 ON t1.album_id = al1.album_id
@@ -124,6 +144,7 @@ def precompute_features(cursor):
     # Fetch features for all tracks
     tracks = execute_query(cursor, feature_query, fetch_one=False, fetch_all=True)
 
+    logger.info("Update normalized_features")
     # Normalize and store features
     for track in tracks:
         track_id = track[0]
@@ -136,6 +157,146 @@ def precompute_features(cursor):
             (json.dumps(normalized_features_vals), track_id),
         )
     commit()
+
+
+def process_batch(batch_ids, track_features, track_ids, threshold):
+    """
+    Compute similarity for a batch of tracks and return the top 100 similarities.
+
+    Args:
+        batch_ids (list): List of `track_id_1` values in the batch.
+        track_features (dict): Dictionary of track_id -> feature vector.
+        track_ids (list): List of all track IDs.
+        threshold (float): Minimum similarity score to store.
+
+    Returns:
+        list: List of tuples (track_id_1, track_id_2, similarity_score).
+    """
+    similarities = []
+    for track_id_1 in batch_ids:
+        track_similarities = []
+
+        for track_id_2 in track_ids:
+            if track_id_1 >= track_id_2:
+                continue
+
+            # Compute similarity
+            similarity_score = 1 - cosine(
+                track_features[track_id_1], track_features[track_id_2]
+            )
+
+            if similarity_score >= threshold and track_id_1 != track_id_2:
+                track_similarities.append((track_id_1, track_id_2, similarity_score))
+
+        # Sort and keep only the top 100 similarities
+        top_similarities = sorted(track_similarities, key=lambda x: x[2], reverse=True)[
+            :100
+        ]
+        similarities.extend(top_similarities)
+
+    # Update progress counter
+    with counter_lock:
+        shared_counter.value += 1
+        print(
+            f"Progress: {shared_counter.value} batches completed by process {os.getpid()}"
+        )
+
+    return similarities
+
+
+def compute_similarity_parallel(
+    db_path, track_features, batch_size=100, top_n=100, threshold=0.8, num_workers=4
+):
+    """
+    Compute similarities in parallel and store only the top 100 similarities for each track.
+
+    Args:
+        db_path (str): Path to the SQLite database.
+        track_features (dict): Dictionary of track_id -> feature vector.
+        batch_size (int): Number of tracks to process in each batch.
+        threshold (float): Minimum similarity score to consider.
+        num_workers (int): Number of parallel workers.
+    """
+    track_ids = list(track_features.keys())
+
+    # Split track_ids into batches
+    batches = [
+        track_ids[i : i + batch_size] for i in range(0, len(track_ids), batch_size)
+    ]
+
+    # Shared counter and lock
+    counter = Value("i", 0)  # Shared counter initialized to 0
+    lock = Lock()
+
+    all_similarities = []
+
+    with Pool(num_workers, initializer=init_worker, initargs=(counter, lock)) as pool:
+        results = pool.starmap(
+            query_annoy_for_tracks,
+            [(batch, top_n, threshold) for batch in batches],
+        )
+        for batch_similarities in results:
+            all_similarities.extend(batch_similarities)
+
+    # Write results to the database
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    try:
+        cursor.executemany(
+            "INSERT INTO track_similarity (track_id_1, track_id_2, similarity_score) VALUES (?, ?, ?);",
+            all_similarities,
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def query_annoy_for_tracks(batch_ids, top_n=100, threshold=0.8):
+    """
+    Query Annoy index for a batch of track IDs.
+
+    Args:
+        batch_ids (list): List of track IDs to process.
+        top_n (int): Number of most similar tracks to retrieve.
+        threshold (float): Minimum similarity score to consider.
+
+    Returns:
+        list: List of tuples (track_id_1, track_id_2, similarity_score).
+    """
+    config = load_config()
+    index_path = config["annoy_index"]["path"]
+    num_trees = config["annoy_index"]["num_trees"]
+
+    # Define the number of features (dimension)
+    feature_dim = config["annoy_index"][
+        "feature_dim"
+    ]  # Replace with the actual number of features
+
+    index = AnnoyIndex(
+        feature_dim, metric="euclidean"
+    )  # Adjust dimension to match your index
+    index.load(index_path)
+
+    results = []
+    for track_id_1 in batch_ids:
+        # Get top N similar tracks
+        track_ids, distances = index.get_nns_by_item(
+            track_id_1, n=top_n, include_distances=True
+        )
+
+        # Convert distances to similarity scores and filter by threshold
+        for track_id_2, distance in zip(track_ids, distances):
+            similarity_score = 1 - distance  # Convert distance to similarity
+            if similarity_score >= threshold and track_id_1 != track_id_2:
+                results.append((track_id_1, track_id_2, similarity_score))
+
+    # Update progress counter
+    with counter_lock:
+        shared_counter.value += 1
+        logger.info(
+            f"Progress: {shared_counter.value} batches completed by process {os.getpid()}"
+        )
+    return results
 
 
 def compute_similarity_batch(cursor, batch_size=1000, threshold=0.8):
@@ -160,27 +321,19 @@ def compute_similarity_batch(cursor, batch_size=1000, threshold=0.8):
 
     execute_query(cursor, "DELETE FROM track_similarity")
     commit()
+    close_cursor(cursor)
+    close_connection()
 
-    # Process in batches
-    track_ids = list(track_features.keys())
-    for i in range(0, len(track_ids), batch_size):
-        batch_ids = track_ids[i : i + batch_size]
+    config = load_config()
+    db_config = config["database"]
 
-        for track_id_1 in batch_ids:
-            for track_id_2 in track_ids:
-                if track_id_1 >= track_id_2:
-                    continue
-
-                # Compute similarity
-                similarity_score = 1 - cosine(
-                    track_features[track_id_1], track_features[track_id_2]
-                )
-                if similarity_score >= threshold and track_id_1 != track_id_2:
-                    cursor.execute(
-                        "INSERT INTO track_similarity (track_id_1, track_id_2, similarity_score) VALUES (?, ?, ?);",
-                        (track_id_1, track_id_2, similarity_score),
-                    )
-        commit()
+    compute_similarity_parallel(
+        db_path=db_config["path"],
+        track_features=track_features,
+        batch_size=100,  # Process 100 tracks per batch
+        threshold=0.8,
+        num_workers=4,  # Use 4 parallel processes
+    )
 
 
 def build_ann_index(cursor):
@@ -203,12 +356,15 @@ def build_ann_index(cursor):
         fetch_one=False,
         fetch_all=True,
     )
+    logger.info("Add features to index")
     for track_id, features_json in features:
         features = json.loads(features_json)
         index.add_item(track_id, features)
 
     # Build the index with the specified number of trees
+    logger.info("Build feature index")
     index.build(num_trees)
+    logger.info("Save feature index")
     index.save(index_path)
 
 
@@ -230,7 +386,7 @@ def normalize_features(features, min_vals, max_vals):
     ]
 
 
-def search_similar_tracks(track_features, num_results=5):
+def search_similar_tracks(query_track_id, track_features, num_results=5):
     """
     Search for the most similar tracks using the Annoy index.
     """
@@ -240,10 +396,31 @@ def search_similar_tracks(track_features, num_results=5):
 
     index = AnnoyIndex(feature_dim, metric="euclidean")
     index.load(index_path)
+    _num = num_results + 1
     similar_tracks = index.get_nns_by_vector(
-        track_features, num_results, include_distances=True
+        track_features, _num, include_distances=True
     )
-    return similar_tracks
+
+    # Post-process to exclude the input track ID
+    track_ids, distances = similar_tracks
+    filtered_similar_tracks = [
+        (other_track_id, distance)
+        for other_track_id, distance in zip(track_ids, distances)
+        if other_track_id != query_track_id
+    ]
+    return filtered_similar_tracks
+
+
+def print_track(track, is_similary=False):
+    prefix = ""
+    if is_similary:
+        prefix = "-> "
+
+    print(
+        f'{prefix}{Style.BRIGHT + Fore.YELLOW}"{track["track_title"]}"{Style.RESET_ALL} '
+        f'from {Style.BRIGHT + Fore.GREEN}"{track["artist_name"]}"{Style.RESET_ALL} '
+        f'out of {Style.BRIGHT + Fore.CYAN}"{track["album_name"]}"'
+    )
 
 
 def run_similarity(do_normalize, input_query):
@@ -265,9 +442,14 @@ def run_similarity(do_normalize, input_query):
                 fetch_all=False,
             )
             track_features = json.loads(features_json[1])
-            similar_tracks = search_similar_tracks(track_features)
-            print(f"{get_track_by_id(cursor, track[0])}")
-            for sim_track in similar_tracks[0]:
-                print(f"-->{get_track_by_id(cursor, sim_track)}")
-    close_cursor(cursor)
-    close_connection()
+            similar_tracks = search_similar_tracks(track[0], track_features, 10)
+
+            main_track = get_track_by_id(cursor, track[0])
+
+            print_track(main_track)
+            for sim_track in similar_tracks:
+                sim_track_result = get_track_by_id(cursor, sim_track[0])
+
+                print_track(sim_track_result, True)
+        close_cursor(cursor)
+        close_connection()
