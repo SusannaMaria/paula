@@ -49,7 +49,7 @@ import csv
 import signal
 import logging
 
-from config_loader import load_config
+from utils.config_loader import load_config
 
 # Load configuration
 config = load_config()

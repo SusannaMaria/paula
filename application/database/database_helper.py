@@ -27,7 +27,7 @@
 """
 
 import sys
-from config_loader import load_config
+from utils.config_loader import load_config
 import logging
 import os
 import subprocess

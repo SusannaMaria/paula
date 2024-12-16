@@ -31,7 +31,7 @@ import requests
 import time
 import logging
 from updater.feature_extractor import run_essentia_extractor
-from config_loader import load_config
+from utils.config_loader import load_config
 from database.database_helper import (
     close_connection,
     close_cursor,

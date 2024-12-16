@@ -5,7 +5,7 @@ import sqlite3
 import numpy as np
 import os
 from search.search_main import create_search_query
-from config_loader import load_config
+from utils.config_loader import load_config
 from database.database_helper import (
     close_connection,
     close_cursor,
@@ -413,13 +413,15 @@ def search_similar_tracks(query_track_id, track_features, num_results=5):
     return filtered_similar_tracks
 
 
-def open_in_foobar2000(playlist_path):
+def open_in_player(playlist_path):
     """
     Open the generated M3U playlist in Foobar2000.
 
     Args:
         playlist_path (str): Full path to the playlist file.
     """
+    config = load_config()
+    player = Path(config["player"])
     try:
         playlist_path = (
             str(playlist_path)
@@ -428,7 +430,7 @@ def open_in_foobar2000(playlist_path):
             .replace("\\", ":\\", 1)
         )
         subprocess.run(
-            ["cmd.exe", "/c", f'start foobar2000 "{playlist_path}"'],
+            ["cmd.exe", "/c", f'start {player} "{playlist_path}"'],
             check=True,
             stdout=subprocess.DEVNULL,  # Suppress standard output
             stderr=subprocess.DEVNULL,  # Suppress standard error
@@ -517,6 +519,6 @@ def run_similarity(do_normalize, input_query):
 
         playlist_path = temp_dir / "paula_playlist.m3u"
         create_m3u_playlist(file_paths, playlist_path)
-        open_in_foobar2000(playlist_path)
+        open_in_player(playlist_path)
         close_cursor(cursor)
         close_connection()

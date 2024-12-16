@@ -27,7 +27,7 @@
 """
 
 import re
-from config_loader import load_config
+from utils.config_loader import load_config
 from database.database_helper import execute_query_print_out
 import logging
 

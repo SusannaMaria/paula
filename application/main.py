@@ -42,7 +42,7 @@ from database.database_helper import (
     close_connection,
     restore_database,
 )
-from logging_config import setup_logging
+from utils.logging_config import setup_logging
 import logging
 
 from updater.updater_main import run_updater
