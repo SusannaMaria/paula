@@ -71,7 +71,7 @@ def build_sql_query(conditions, logical_operator):
 
     where_clause = f" {logical_operator} ".join(where_clauses)
     sql_query = f"""
-        SELECT tracks.title, artists.name AS artist, albums.name AS album, tracks.genre
+        SELECT tracks.track_id, tracks.title, artists.artist_id, artists.name AS artist, albums.name AS album, tracks.genre
         FROM tracks
         JOIN artists ON tracks.artist_id = artists.artist_id
         JOIN albums ON tracks.album_id = albums.album_id
@@ -80,11 +80,16 @@ def build_sql_query(conditions, logical_operator):
     return sql_query, params
 
 
+def create_search_query(input_query):
+    conditions, logical_operator = parse_query(input_query)
+    sql_query, params = build_sql_query(conditions, logical_operator)
+    return (sql_query, params)
+
+
 def run_search(input_query):
     logger.info(f"Search initiated with query: {input_query}")
     try:
-        conditions, logical_operator = parse_query(input_query)
-        sql_query, params = build_sql_query(conditions, logical_operator)
+        sql_query, params = create_search_query(input_query)
         logger.info(f"Generated SQL Query: {sql_query}")
         logger.info(f"Parameters: {params}")
         execute_query_print_out(sql_query, params)

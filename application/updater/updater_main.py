@@ -401,15 +401,19 @@ def update_track_metadata(
     if musicbrainz_data:
         # Extract and update fields
         track = None
-        for media in musicbrainz_data["releases"][0]["media"]:
-            for track_item in media["tracks"]:
-                if track_item.get("id") == musicbrainz_id:
-                    track = track_item
+
+        for release in musicbrainz_data["releases"]:
+            for media in release["media"]:
+                for track_item in media["tracks"]:
+                    if track_item.get("id") == musicbrainz_id:
+                        track = track_item
+                        break
+                if track:
                     break
             if track:
                 break
 
-        if track and "recording" in track:
+        if track and "recording" in track and not extract_features:
             # print(track)
             recording_id = track["recording"].get("id")
             title = track["recording"].get("title")
@@ -420,10 +424,6 @@ def update_track_metadata(
                 formatted_length = f"{minutes}:{seconds:02d}"
             tags = [tag["name"] for tag in musicbrainz_data.get("tags", [])]
             is_valid = True
-            update_track_metadata_with_acousticbrainz(
-                cursor, track_id, recording_id, extract_features
-            )
-
             query = """
                 UPDATE tracks
                 SET recording_id = ?,
@@ -438,9 +438,20 @@ def update_track_metadata(
                 (recording_id, title, formatted_length, is_valid, track_id),
             )
 
+            update_track_metadata_with_acousticbrainz(
+                cursor, track_id, recording_id, extract_features
+            )
             # Update tags in the track_tags table
             if tags:
                 update_track_tags(cursor, track_id, tags)
+
+        elif extract_features:
+            recording_id = None
+
+            update_track_metadata_with_acousticbrainz(
+                cursor, track_id, recording_id, extract_features
+            )
+
     else:
         # Mark as invalid if no data is available
         query = """

@@ -29,6 +29,8 @@
 
 import sys
 
+from similarity.similarity_main import run_similarity
+
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
@@ -122,6 +124,15 @@ def main():
         )
         subparsers.add_parser("backup", help="Backup database into file")
         subparsers.add_parser("restore", help="Restore database from file")
+
+        similarity_parser = subparsers.add_parser(
+            "similarity", help="Compute simularity based on song features."
+        )
+        similarity_parser.add_argument(
+            "--normalize",
+            action="store_true",
+            help="Normalize features and store it in json in db",
+        )
         args = parser.parse_args()
 
         if args.command == "import":
@@ -150,6 +161,9 @@ def main():
         elif args.command == "restore":
             backup_file = input("Enter the path to the backup file: ")
             restore_database(backup_file=backup_file)
+        elif args.command == "similarity":
+            backup_file = input("Enter the path to the backup file: ")
+            run_similarity(do_normalize=args.normalize)
 
         close_connection()
     except Exception as e:

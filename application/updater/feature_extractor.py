@@ -1,8 +1,10 @@
 import json
+import os
 import sqlite3
 import docker
 import logging
 from database.database_helper import execute_query
+from pydub import AudioSegment
 
 logger = logging.getLogger(__name__)
 
@@ -25,18 +27,26 @@ def run_essentia_extractor(input_file):
     logger.info(f"analyse {input_file}")
     # Initialize the Docker client
     client = docker.from_env()
+    root, extension = os.path.splitext(input_file)
+    if extension.lower() == ".mp3":
+        target_file = "/tmp/test.mp3"
+    elif extension.lower() == ".flac":
+        target_file = "/tmp/test.flac"
+    else:
+        logger.error(f"Not supported: {input_file}")
+        exit()
 
     # Define the Docker image and command
     image = "ghcr.io/mgoltzsche/essentia:dev"
     command = [
         "essentia_streaming_extractor_music",
-        "/tmp/test.flac",  # Input file inside the container
+        target_file,  # Input file inside the container
         "-",  # Output to stdout
         "/etc/essentia/profile.yaml",
     ]
 
     # Bind mount the input file
-    volumes = {input_file: {"bind": "/tmp/test.flac", "mode": "ro"}}  # Read-only bind
+    volumes = {input_file: {"bind": target_file, "mode": "ro"}}  # Read-only bind
 
     # Run the container
     try:
@@ -47,6 +57,7 @@ def run_essentia_extractor(input_file):
             remove=True,  # Auto-remove the container
             stdout=True,
             stderr=False,
+            mem_limit="4g",
         )
 
         # Decode the container output as JSON
@@ -55,14 +66,9 @@ def run_essentia_extractor(input_file):
         return data
 
     except docker.errors.ContainerError as e:
-        print(f"Container error: {e.stderr.decode('utf-8')}")
+        logger.error(f"Container error: {e.stderr.decode('utf-8')}")
     except docker.errors.ImageNotFound:
-        print(f"Image '{image}' not found. Please pull the image first.")
+        logger.error(f"Image '{image}' not found. Please pull the image first.")
     except docker.errors.APIError as e:
         logger.error(f"Docker API error: {e}")
     return None
-
-
-# file_path = r"/mnt/c/Musik/LIBRARY/100blumen/Hoffnung, halt’s Maul!/100blumen - Hoffnung halt's Maul! - 01 Ey, die Vögel.flac"
-
-# run_essentia_extractor(file_path, "test.json")
