@@ -48,10 +48,12 @@ def close_connection():
 
 
 # Establish Database Connection
-def get_connection():
+def get_connection(asrow=False):
     global conn
     try:
         conn = sqlite3.connect(db_config["path"])
+        if asrow:
+            conn.row_factory = sqlite3.Row
     except Exception as e:
         logger.error(f"Error connecting to database: {e}")
         raise
@@ -347,9 +349,9 @@ def initialize_schema():
         cursor.close()
 
 
-def create_cursor():
+def create_cursor(asrow=False):
     global conn
-    get_connection()
+    get_connection(asrow)
     cursor = conn.cursor()
     return cursor
 
