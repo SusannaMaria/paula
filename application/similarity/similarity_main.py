@@ -171,6 +171,15 @@ def precompute_features(cursor):
     commit()
 
 
+# Function to map similarity score to edge properties
+def get_edge_properties(similarity):
+    color_scale = int(255 * similarity)  # Scale color from 0-255
+    color = f"rgb({255 - color_scale}, {color_scale}, 200)"  # Red to Green gradient
+    width = max(1, similarity * 4)  # Scale width (min 1px, max 10px)
+    opacity = 0.3 + 0.7 * similarity  # Scale opacity (min 0.3, max 1)
+    return color, width, opacity
+
+
 def process_batch(batch_ids, track_features, track_ids, threshold):
     """
     Compute similarity for a batch of tracks and return the top 100 similarities.
@@ -311,6 +320,25 @@ def query_annoy_for_tracks(batch_ids, top_n=100, threshold=0.8):
     return results
 
 
+def similarity_tracks(cursor, track_id1, track_id2):
+    similarity_query = """SELECT similarity_score
+            FROM track_similarity
+            WHERE (track_id_1 = ? AND track_id_2 = ?)
+            OR (track_id_1 = ? AND track_id_2 = ?)"""
+
+    similarity = execute_query(
+        cursor,
+        similarity_query,
+        (track_id1, track_id2, track_id2, track_id1),
+        fetch_one=True,
+        fetch_all=False,
+    )
+    if similarity and "similarity_score" in similarity:
+        return similarity["similarity_score"]
+    else:
+        return 0.0
+
+
 def compute_similarity_batch(cursor, batch_size=1000, threshold=0.8):
     """
     Compute pairwise similarity for tracks in batches and store results above the threshold.
@@ -345,6 +373,7 @@ def compute_similarity_batch(cursor, batch_size=1000, threshold=0.8):
         batch_size=100,  # Process 100 tracks per batch
         threshold=0.8,
         num_workers=4,  # Use 4 parallel processes
+        top_n=500,
     )
 
 
@@ -518,11 +547,47 @@ def getnode(net, track, distance, from_node_id, is_similary=False):
         )
 
 
+def network_similarity(net, similar_tracks):
+
+    config = load_config()
+    index_path = config["annoy_index"]["path"]
+    num_trees = config["annoy_index"]["num_trees"]
+
+    # Define the number of features (dimension)
+    feature_dim = config["annoy_index"]["feature_dim"]
+
+    index = AnnoyIndex(
+        feature_dim, metric="euclidean"
+    )  # Adjust dimension to match your index
+    index.load(index_path)
+
+    for i in range(len(similar_tracks)):
+        for j in range(
+            i + 1, len(similar_tracks)
+        ):  # Ensure no duplicates or self-pairs
+            similarity = 1 - index.get_distance(
+                similar_tracks[i][0], similar_tracks[j][0]
+            )
+
+            color, width_edge, opacity = get_edge_properties(similarity)
+
+            if similarity > 0.6:
+                net.add_edge(
+                    similar_tracks[i][0],
+                    similar_tracks[j][0],
+                    weight=similarity,
+                    width=width_edge,
+                    opacity=opacity,
+                    color=color,
+                )
+
+
 def run_similarity(do_normalize, input_query):
     config = load_config()
     temp_dir = Path(config["temp_dir"])
     net = Network(height="750px", width="100%", notebook=False)
     cursor = create_cursor(asrow=True)
+    max_recursion_level = 2
     if do_normalize:
         precompute_features(cursor)
         build_ann_index(cursor)
@@ -534,32 +599,14 @@ def run_similarity(do_normalize, input_query):
         )
         file_paths = []
         for track in tracks:
-            features_json = execute_query(
+            track_similarity_processing(
+                net,
                 cursor,
-                f"SELECT track_id, normalized_features FROM track_features WHERE track_id={track[0]};",
-                fetch_one=True,
-                fetch_all=False,
+                file_paths,
+                track[0],
+                current_depth=0,
+                max_depth=max_recursion_level,
             )
-            track_features = json.loads(features_json[1])
-            similar_tracks = search_similar_tracks(track[0], track_features, 10)
-
-            main_track = get_track_by_id(cursor, track[0])
-            file_paths.append(main_track["title_path"])
-            getnode(net, main_track, 1.0, main_track["track_id"], is_similary=False)
-
-            print_track(main_track, print_path=False)
-            for sim_track in similar_tracks:
-                sim_track_result = get_track_by_id(cursor, sim_track[0])
-
-                print_track(sim_track_result, print_path=False, is_similary=True)
-                file_paths.append(sim_track_result["title_path"])
-                getnode(
-                    net,
-                    sim_track_result,
-                    sim_track[1],
-                    main_track["track_id"],
-                    is_similary=True,
-                )
 
         playlist_path = temp_dir / "paula_playlist.m3u"
         create_m3u_playlist(file_paths, playlist_path)
@@ -579,3 +626,50 @@ def run_similarity(do_normalize, input_query):
         # Save the modified HTML
         with open("track_similarity_graph.html", "w", encoding="utf-8") as f:
             f.write(modified_html)
+
+
+def track_similarity_processing(
+    net, cursor, file_paths, track, current_depth, max_depth, do_m3u=True
+):
+    if current_depth >= max_depth:
+        print(f"Max recursion depth {max_depth} reached at depth {current_depth}")
+        return
+
+    features_json = execute_query(
+        cursor,
+        f"SELECT track_id, normalized_features FROM track_features WHERE track_id={track};",
+        fetch_one=True,
+        fetch_all=False,
+    )
+    track_features = json.loads(features_json[1])
+    similar_tracks = search_similar_tracks(track, track_features, 10)
+
+    main_track = get_track_by_id(cursor, track)
+    if do_m3u:
+        file_paths.append(main_track["title_path"])
+    getnode(net, main_track, 1.0, main_track["track_id"], is_similary=False)
+
+    print_track(main_track, print_path=False)
+    for sim_track in similar_tracks:
+        sim_track_result = get_track_by_id(cursor, sim_track[0])
+
+        print_track(sim_track_result, print_path=False, is_similary=True)
+        if do_m3u:
+            file_paths.append(sim_track_result["title_path"])
+        getnode(
+            net,
+            sim_track_result,
+            sim_track[1],
+            main_track["track_id"],
+            is_similary=True,
+        )
+        track_similarity_processing(
+            net,
+            cursor,
+            file_paths,
+            sim_track[0],
+            current_depth + 1,
+            max_depth,
+            do_m3u=False,
+        )
+    network_similarity(net, similar_tracks)
