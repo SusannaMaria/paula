@@ -134,6 +134,11 @@ def main():
             help="Normalize features and store it in json in db",
         )
         similarity_parser.add_argument(
+            "--train",
+            action="store_true",
+            help="Train weights based on user feedback",
+        )
+        similarity_parser.add_argument(
             "query",
             help="Search query (e.g., 'artist: Tool and genre: Rock').",
             default=None,
@@ -167,7 +172,9 @@ def main():
             backup_file = input("Enter the path to the backup file: ")
             restore_database(backup_file=backup_file)
         elif args.command == "similarity":
-            run_similarity(do_normalize=args.normalize, input_query=args.query)
+            run_similarity(
+                do_normalize=args.normalize, input_query=args.query, do_train=args.train
+            )
 
         close_connection()
     except Exception as e:

@@ -582,7 +582,7 @@ def network_similarity(net, similar_tracks):
                 )
 
 
-def run_similarity(do_normalize, input_query):
+def run_similarity(do_normalize, input_query, do_train):
     config = load_config()
     temp_dir = Path(config["temp_dir"])
     net = Network(height="750px", width="100%", notebook=False)
@@ -617,8 +617,8 @@ def run_similarity(do_normalize, input_query):
         playlist_path = temp_dir / "paula_playlist.m3u"
         create_m3u_playlist(file_paths, playlist_path)
         open_in_player(playlist_path)
-
-        prepare_feedback(cursor, origin_track)
+        if do_train:
+            prepare_feedback(cursor, origin_track)
 
         close_cursor(cursor)
         close_connection()
