@@ -31,21 +31,31 @@ def train_feature_weights(
     similar_tracks,
     feedback,
     origin_track,
-    learning_rate=0.001,
-    epochs=100,
+    initial_learning_rate=0.01,
+    max_epochs=200,
+    patience=10,
 ):
     config = load_config()
     similar_tracks_similarity = [x[1] for x in similar_tracks]
     weights = [details["weight"] for feature, details in config["features"].items()]
     origin_vector = get_feature_vector(cursor, origin_track)
 
-    curses.curs_set(0)  # Hide cursor
+    curses.start_color()
+    curses.curs_set(0)  # Enable cursor
+    curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)  # Red text
+    curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Green text
+    curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # Yellow text
+    curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)  # Blue text
     stdscr.clear()
 
     # Display header
     stdscr.addstr(0, 0, "Training Phase: Press 'q' to quit at any time.", curses.A_BOLD)
 
-    for epoch in range(epochs):
+    best_loss = float("inf")
+    epochs_without_improvement = 0
+    learning_rate = initial_learning_rate
+    feedback_str = "Training completed! Press any key to exit."
+    for epoch in range(max_epochs):
         total_loss = 0
         for idx, (track_id, rating) in enumerate(feedback.items()):
             if track_id == origin_track or rating == -1:
@@ -84,12 +94,32 @@ def train_feature_weights(
             # Accumulate loss for monitoring
             total_loss += error**2
 
+        # Check for early stopping
+        if total_loss < best_loss:
+            best_loss = total_loss
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+
         # Monitor loss at each epoch
         if epoch % 10 == 0:
             stdscr.addstr(2 + epoch % 10, 0, f"Epoch {epoch}, Loss: {total_loss:.4f}")
             stdscr.refresh()
 
-    stdscr.addstr(2 + 11 + 1, 0, "Training completed! Press any key to exit.")
+        # Stop training if no improvement for `patience` epochs
+        if epochs_without_improvement >= patience:
+            feedback_str = f"Stopping early at epoch {epoch}. No improvement in loss. Press any key to exit."
+            break
+
+        # Optionally decay learning rate if improvement slows
+        if epochs_without_improvement > patience // 2:
+            learning_rate *= 0.5  # Reduce learning rate
+            stdscr.addstr(
+                2 + 11 + 1, 0, f"Reducing learning rate to {learning_rate:.6f}"
+            )
+            stdscr.refresh()
+
+    stdscr.addstr(2 + 11 + 1, 0, feedback_str)
     stdscr.refresh()
     stdscr.getch()
 

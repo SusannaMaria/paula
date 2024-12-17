@@ -711,8 +711,9 @@ def prepare_feedback(cursor, origin_track_id):
             similar_tracks,
             track_feedback,
             origin_track_id,
-            learning_rate=0.01,
-            epochs=100,
+            initial_learning_rate=0.001,
+            max_epochs=200,
+            patience=10,
         )
 
         confirmation = curses.wrapper(display_weights_and_confirm, trained_weights)

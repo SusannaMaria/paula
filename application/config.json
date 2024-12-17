@@ -22,52 +22,52 @@
     "player": "foobar2000",
     "features": {
         "danceability": {
-            "weight": 1.0
+            "weight": 1.0656097829367392
         },
         "bpm": {
-            "weight": 1.0
+            "weight": 0.8991003536206305
         },
         "average_loudness": {
-            "weight": 1.0
+            "weight": 0.9123196142355351
         },
         "mood_happy": {
-            "weight": 1.0
+            "weight": 1.1592677451404731
         },
         "mood_party": {
-            "weight": 1.0
+            "weight": 1.0041526255785196
         },
         "genre_rock": {
-            "weight": 1.0
+            "weight": 0.996670635188722
         },
         "genre_pop": {
-            "weight": 1.0
+            "weight": 0.9941882962266668
         },
         "genre_raphiphop": {
-            "weight": 1.0
+            "weight": 0.9996669876032159
         },
         "genre_jazz": {
-            "weight": 1.0
+            "weight": 0.9946120409500047
         },
         "genre_electronic": {
-            "weight": 1.0
+            "weight": 1.0805186076544313
         },
         "dynamic_complexity": {
-            "weight": 1.0
+            "weight": 1.0132728420580608
         },
         "voice_instrumental": {
-            "weight": 1.0
+            "weight": 0.7119338944038304
         },
         "female": {
-            "weight": 1.0
+            "weight": 1.0924543415924592
         },
         "genre_alternative": {
-            "weight": 1.0
+            "weight": 0.9351451350149327
         },
         "mood_relaxed": {
-            "weight": 1.0
+            "weight": 0.9502717918124792
         },
         "mood_sad": {
-            "weight": 1.0
+            "weight": 0.9221423793362923
         }
     }
 }
