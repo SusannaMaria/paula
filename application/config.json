@@ -19,5 +19,55 @@
         "feature_dim": 16
     },
     "temp_dir": "/mnt/c/Users/susan/AppData/Local/Temp",
-    "player": "foobar2000"
+    "player": "foobar2000",
+    "features": {
+        "danceability": {
+            "weight": 1.0
+        },
+        "bpm": {
+            "weight": 1.0
+        },
+        "average_loudness": {
+            "weight": 1.0
+        },
+        "mood_happy": {
+            "weight": 1.0
+        },
+        "mood_party": {
+            "weight": 1.0
+        },
+        "genre_rock": {
+            "weight": 1.0
+        },
+        "genre_pop": {
+            "weight": 1.0
+        },
+        "genre_raphiphop": {
+            "weight": 1.0
+        },
+        "genre_jazz": {
+            "weight": 1.0
+        },
+        "genre_electronic": {
+            "weight": 1.0
+        },
+        "dynamic_complexity": {
+            "weight": 1.0
+        },
+        "voice_instrumental": {
+            "weight": 1.0
+        },
+        "female": {
+            "weight": 1.0
+        },
+        "genre_alternative": {
+            "weight": 1.0
+        },
+        "mood_relaxed": {
+            "weight": 1.0
+        },
+        "mood_sad": {
+            "weight": 1.0
+        }
+    }
 }

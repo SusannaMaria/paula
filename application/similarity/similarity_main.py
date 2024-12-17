@@ -1,12 +1,15 @@
+import curses
 import json
 import logging
 from pathlib import Path
 import sqlite3
 import numpy as np
 import os
+from similarity.train_weights import train_feature_weights
+from similarity.similarity_feedback import display_tracks_and_collect_feedback
 from similarity.html_utils import inject_context_menu
 from search.search_main import create_search_query
-from utils.config_loader import load_config
+from utils.config_loader import load_config, update_weight_config
 from database.database_helper import (
     close_connection,
     close_cursor,
@@ -119,34 +122,24 @@ def precompute_features(cursor):
     """
     Precompute and store normalized features for all tracks in the database.
     """
-    min_max_query = """
-    SELECT
-        MIN(danceability), MAX(danceability),
-        MIN(bpm), MAX(bpm),
-        MIN(average_loudness), MAX(average_loudness),
-        MIN(mood_happy), MAX(mood_happy),
-        MIN(mood_party), MAX(mood_party),
-        MIN(genre_rock), MAX(genre_rock),
-        MIN(genre_pop), MAX(genre_pop),
-        MIN(genre_raphiphop), MAX(genre_raphiphop),
-        MIN(genre_jazz), MAX(genre_jazz),
-        MIN(genre_electronic), MAX(genre_electronic),
-        MIN(dynamic_complexity), MAX(dynamic_complexity),
-        MIN(voice_instrumental), MAX(voice_instrumental),
-        MIN(female), MAX(female),
-        MIN(genre_alternative), MAX(genre_alternative),
-        MIN(mood_relaxed), MAX(mood_relaxed),
-        MIN(mood_sad), MAX(mood_sad)
-    FROM track_features;
-    """
+    config = load_config()
+    features = config["features"]
 
-    feature_query = """
-    SELECT track_id, danceability, bpm, average_loudness, mood_happy, mood_party,
-           genre_rock, genre_pop, genre_raphiphop, genre_jazz, genre_electronic, 
-           dynamic_complexity,voice_instrumental,female,genre_alternative,
-           mood_relaxed,mood_sad
-    FROM track_features;
-    """
+    min_max_query = "SELECT "
+    min_max_query_select = []
+    for feature_name, feature_details in features.items():
+        # weight = feature_details["weight"]
+        min_max_query_select.append(f"MIN({feature_name}), MAX({feature_name})")
+
+    min_max_query += ", ".join(min_max_query_select)
+    min_max_query += " FROM track_features;"
+
+    feature_query = "SELECT track_id"
+    for feature_name, feature_details in features.items():
+        # weight = feature_details["weight"]
+        feature_query += f", {feature_name}"
+
+    feature_query += " FROM track_features"
 
     # Fetch min and max values for normalization
     min_max = execute_query(cursor, min_max_query, fetch_one=True, fetch_all=False)
@@ -377,13 +370,14 @@ def compute_similarity_batch(cursor, batch_size=1000, threshold=0.8):
     )
 
 
-def build_ann_index(cursor):
+def build_ann_index(cursor, feature_weights):
     """
     Build an Annoy index for fast similarity searches.
     """
     config = load_config()
     index_path = config["annoy_index"]["path"]
     num_trees = config["annoy_index"]["num_trees"]
+    features_config = config["features"]
 
     # Define the number of features (dimension)
     feature_dim = config["annoy_index"][
@@ -398,9 +392,15 @@ def build_ann_index(cursor):
         fetch_all=True,
     )
     logger.info("Add features to index")
+
+    # Process each track's features
     for track_id, features_json in features:
         features = json.loads(features_json)
-        index.add_item(track_id, features)
+
+        # Apply weights to the features
+        weighted_features = [w * f for w, f in zip(feature_weights, features)]
+        # Add the weighted features to the index
+        index.add_item(track_id, weighted_features)
 
     # Build the index with the specified number of trees
     logger.info("Build feature index")
@@ -450,7 +450,7 @@ def search_similar_tracks(query_track_id, track_features, num_results=5):
         if other_track_id != query_track_id
     ]
 
-    return filtered_similar_tracks[::-1]
+    return filtered_similar_tracks
 
 
 def open_in_player(playlist_path):
@@ -587,17 +587,21 @@ def run_similarity(do_normalize, input_query):
     temp_dir = Path(config["temp_dir"])
     net = Network(height="750px", width="100%", notebook=False)
     cursor = create_cursor(asrow=True)
-    max_recursion_level = 2
+    max_recursion_level = 1
     if do_normalize:
-        precompute_features(cursor)
-        build_ann_index(cursor)
-        compute_similarity_batch(cursor)
+        # precompute_features(cursor)
+        feature_weights = [
+            details["weight"] for feature, details in config["features"].items()
+        ]
+        build_ann_index(cursor, feature_weights)
+        # compute_similarity_batch(cursor)
     else:
         sql_query, params = create_search_query(input_query)
         tracks = execute_query(
             cursor, sql_query, params=params, fetch_one=False, fetch_all=True
         )
         file_paths = []
+        origin_track = None
         for track in tracks:
             track_similarity_processing(
                 net,
@@ -607,32 +611,40 @@ def run_similarity(do_normalize, input_query):
                 current_depth=0,
                 max_depth=max_recursion_level,
             )
+            origin_track = track[0]
 
+        ####################
         playlist_path = temp_dir / "paula_playlist.m3u"
         create_m3u_playlist(file_paths, playlist_path)
         open_in_player(playlist_path)
+
+        prepare_feedback(cursor, origin_track)
+
         close_cursor(cursor)
         close_connection()
-        # Customize appearance
-        net.repulsion(
-            node_distance=120, central_gravity=0.33, spring_length=100, damping=0.95
-        )
-        # Save and open the interactive HTML file
-        html_content = net.generate_html()
 
-        # Inject the context menu script into the generated HTML
-        modified_html = inject_context_menu(html_content)
+        # # Customize appearance
+        # net.repulsion(
+        #     node_distance=120, central_gravity=0.33, spring_length=100, damping=0.95
+        # )
+        # # Save and open the interactive HTML file
+        # html_content = net.generate_html()
 
-        # Save the modified HTML
-        with open("track_similarity_graph.html", "w", encoding="utf-8") as f:
-            f.write(modified_html)
+        # # Inject the context menu script into the generated HTML
+        # modified_html = inject_context_menu(html_content)
+
+        # # Save the modified HTML
+        # with open("track_similarity_graph.html", "w", encoding="utf-8") as f:
+        #     f.write(modified_html)
 
 
 def track_similarity_processing(
     net, cursor, file_paths, track, current_depth, max_depth, do_m3u=True
 ):
     if current_depth >= max_depth:
-        print(f"Max recursion depth {max_depth} reached at depth {current_depth}")
+        logger.debug(
+            f"Max recursion depth {max_depth} reached at depth {current_depth}"
+        )
         return
 
     features_json = execute_query(
@@ -673,3 +685,87 @@ def track_similarity_processing(
             do_m3u=False,
         )
     network_similarity(net, similar_tracks)
+
+
+def prepare_feedback(cursor, origin_track_id):
+    features_json = execute_query(
+        cursor,
+        f"SELECT track_id, normalized_features FROM track_features WHERE track_id={origin_track_id};",
+        fetch_one=True,
+        fetch_all=False,
+    )
+    track_features = json.loads(features_json[1])
+    # origin_track = get_track_by_id(cursor, origin_track_id)
+
+    similar_tracks = search_similar_tracks(origin_track_id, track_features, 10)
+
+    similar_tracks_ids = [x[0] for x in similar_tracks]
+    track_feedback = display_tracks_and_collect_feedback(
+        cursor, origin_track_id, similar_tracks_ids
+    )
+
+    if len(track_feedback) == 11:
+        trained_weights = curses.wrapper(
+            train_feature_weights,
+            cursor,
+            similar_tracks,
+            track_feedback,
+            origin_track_id,
+            learning_rate=0.01,
+            epochs=100,
+        )
+
+        confirmation = curses.wrapper(display_weights_and_confirm, trained_weights)
+
+        if confirmation:
+            update_weight_config(trained_weights)
+            build_ann_index(cursor, trained_weights)
+
+        return confirmation
+    return False
+
+
+def display_weights_and_confirm(stdscr, trained_weights):
+    """
+    Display old and new weights in curses and ask for user confirmation.
+
+    :param stdscr: The curses screen object.
+    :param old_weights: List of old weights.
+    :param new_weights: List of new weights.
+    :param feature_names: List of feature names.
+    :return: True if user confirms update, False otherwise.
+    """
+    config = load_config()
+    feature_config = config["features"]
+    feature_names = list(feature_config.keys())
+
+    curses.curs_set(0)  # Hide cursor
+    stdscr.clear()
+
+    # Display header
+    stdscr.addstr(0, 0, "Weight Updates (Old -> New):", curses.A_BOLD)
+
+    # Display old and new weights
+
+    for idx, feature in enumerate(feature_names):
+        stdscr.addstr(
+            2 + idx,
+            0,
+            f'{feature}: {feature_config[feature]["weight"]} -> {trained_weights[idx]}',
+        )
+
+    # Ask for confirmation
+    stdscr.addstr(
+        2 + len(feature_names) + 1,
+        0,
+        "Do you want to update the weights with the new values and rebuild the Annoy Index? (y/n): ",
+    )
+    stdscr.refresh()
+
+    # Wait for user input
+    while True:
+        key = stdscr.getch()
+        if key in [ord("y"), ord("Y")]:
+            return True  # User confirmed
+        elif key in [ord("n"), ord("N")]:
+            return False  # User canceled

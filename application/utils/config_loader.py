@@ -45,3 +45,17 @@ def load_config():
     except json.JSONDecodeError as e:
         logger.error(f"Error decoding '{CONFIG_FILE}': {e}")
         raise
+
+
+def update_weight_config(changed_weights):
+    with open(CONFIG_FILE, "r") as file:
+        config = json.load(file)
+
+    feature_names = list(config["features"].keys())
+
+    for i, feature in enumerate(feature_names):
+        config["features"][feature]["weight"] = changed_weights[i]
+
+    # Step 3: Save the updated config back to the file
+    with open(CONFIG_FILE, "w") as file:
+        json.dump(config, file, indent=4)
