@@ -25,6 +25,7 @@
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
     THE SOFTWARE.
 """
+
 import concurrent.futures
 from functools import partial
 from datetime import datetime
@@ -982,13 +983,17 @@ def get_audio_path_from_track_id(cursor, track_id):
     results = execute_query(cursor, query, params="", fetch_one=False, fetch_all=True)
 
     paths = [row[0] for row in results]
-    
+
     config = load_config()
     translate_config = config["local_translate_audio_path"]
 
     if "tracks.path" in translate_config["fields"]:
         paths = [
-            s.replace(translate_config["source"], translate_config["target"], 1) if s.startswith(translate_config["source"]) else s
+            (
+                s.replace(translate_config["source"], translate_config["target"], 1)
+                if s.startswith(translate_config["source"])
+                else s
+            )
             for s in paths
         ]
 
@@ -1059,10 +1064,11 @@ def run_updater(scope, retry_errors, update_valid_entries, extract_features):
 
     logger.info("MusicBrainz updater completed.")
 
+
 def extract_features_single(db_path, track_id):
     """
     Extract features for a single track ID using a new database connection.
-    
+
     Args:
         db_path (str): Path to the SQLite database file.
         track_id (int): The track ID to process.
@@ -1072,7 +1078,7 @@ def extract_features_single(db_path, track_id):
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        
+
         # Feature extraction logic
         audio_path = get_audio_path_from_track_id(cursor, track_id)
         feature_raw_data = run_essentia_extractor(audio_path)
@@ -1089,15 +1095,15 @@ def extract_features_single(db_path, track_id):
                 **features_data_essentia,
             }
             insert_track_features(cursor, track_id, features_data)
-        
+
         conn.commit()  # Commit the transaction
     except Exception as e:
         print(f"Error processing track ID {track_id}: {e}")
     finally:
         conn.close()  # Ensure the connection is closed
 
+
 def extract_features():
-    signal.signal(signal.SIGINT, signal_handler)
     query = """
             SELECT t.track_id, t.musicbrainz_release_track_id
             FROM tracks t
@@ -1109,25 +1115,26 @@ def extract_features():
     track_ids = [item[0] for item in tracks_for_extract_features]
     # for row in tracks_for_extract_features:
     #     print(row)
-        
+
     close_cursor(cursor)
     close_connection()
-    
+
     config = load_config()
     db_config = config["database"]
-    
-    while not stop_update:
-        with concurrent.futures.ProcessPoolExecutor(max_workers=config["extractor"]["threads"]) as executor:
+
+    try:
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=config["extractor"]["threads"]
+        ) as executor:
             # Pass the database path and track IDs to the worker function
-            future = executor.map(partial(extract_features_single, db_config["path"]), track_ids)
+            future = executor.map(
+                partial(extract_features_single, db_config["path"]), track_ids
+            )
             # Ensure all tasks are processed
             for _ in future:
                 pass  # This ensures the tasks are executed and waits for completion
-            if stop_update:
-                logger.info("Update stopped by user.")
-                break
-        
-    print("\nExecution interrupted by the user. Waiting for tasks to complete...")
-    # Executor will allow tasks to finish before shutting down
-    executor.shutdown(wait=True)  # Ensure current tasks finish before stopping
-    print("All running tasks have completed. Exiting.")
+    except KeyboardInterrupt:
+        print("\nExecution interrupted by the user. Waiting for tasks to complete...")
+        # Executor will allow tasks to finish before shutting down
+        executor.shutdown(wait=True)  # Ensure current tasks finish before stopping
+        print("All running tasks have completed. Exiting.")

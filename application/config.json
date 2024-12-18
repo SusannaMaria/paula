@@ -21,12 +21,14 @@
     "temp_dir": "/mnt/c/Users/susan/AppData/Local/Temp",
     "player": "foobar2000",
     "extractor": {
-        "threads": 15
+        "threads": 2
     },
     "local_translate_audio_path": {
         "source": "/mnt/c",
         "target": "/mnt/d",
-        "fields": ["tracks.path"]
+        "fields": [
+            "tracks.path_unused"
+        ]
     },
     "features": {
         "danceability": {
