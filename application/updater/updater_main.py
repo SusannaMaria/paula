@@ -26,6 +26,7 @@
     THE SOFTWARE.
 """
 
+from datetime import datetime
 from pathlib import Path
 import requests
 import time
@@ -363,31 +364,13 @@ def insert_track_features(cursor, track_id, features):
     delete_query = "DELETE FROM track_features WHERE track_id = ?;"
     cursor.execute(delete_query, (track_id,))
 
+    placeholder_pairs = ", ".join(["?"] * (len(features) + 1))
+
     # Insert new features
-    insert_query = """
+    insert_query = f"""
     INSERT INTO track_features (
-        track_id, danceability, female, male, genre_alternative, genre_blues, 
-        genre_electronic, genre_folkcountry, genre_funksoulrnb, genre_jazz, 
-        genre_pop, genre_raphiphop, genre_rock, genre_electronic_ambient, 
-        genre_electronic_dnb, genre_electronic_house, genre_electronic_techno, 
-        genre_electronic_trance, genre_rosamerica_cla, genre_rosamerica_dan, 
-        genre_rosamerica_hip, genre_rosamerica_jaz, genre_rosamerica_pop, 
-        genre_rosamerica_rhy, genre_rosamerica_roc, genre_rosamerica_spe, 
-        genre_tzanetakis_blu, genre_tzanetakis, genre_tzanetakis_cou, 
-        genre_tzanetakis_dis, genre_tzanetakis_hip, genre_tzanetakis_jaz, 
-        genre_tzanetakis_met, genre_tzanetakis_pop, genre_tzanetakis_reg, 
-        genre_tzanetakis_roc, ismir04_rhythm_ChaChaCha, ismir04_rhythm_Jive, 
-        ismir04_rhythm_Quickstep, ismir04_rhythm_Rumba_American, 
-        ismir04_rhythm_Rumba_International, ismir04_rhythm_Rumba_Misc, 
-        ismir04_rhythm_Samba, ismir04_rhythm_Tango, ismir04_rhythm_VienneseWaltz, 
-        ismir04_rhythm_Waltz, mood_acoustic, mood_electronic, mood_happy, 
-        mood_party, mood_relaxed, mood_sad, moods_mirex, timbre, tonal_atonal, 
-        voice_instrumental, average_loudness, dynamic_complexity, bpm, 
-        chords_key, chords_number_rate, chords_scale, danceability_low
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?)
+        track_id, {", ".join([key for key in features.keys()])}
+    ) VALUES ({placeholder_pairs})
     """
     cursor.execute(
         insert_query, [track_id] + [features.get(key) for key in features.keys()]
@@ -779,6 +762,17 @@ def download_image_to_artist_folder(url, artist_name, base_folder="artists"):
         return None
 
 
+def extract_acousticbrainz_essentia(data):
+    features = {
+        "feature_extractor": data.get("metadata", {})
+        .get("version", {})
+        .get("extractor"),
+        "version": data.get("metadata", {}).get("version", {}).get("essentia_git_sha"),
+        "extraction_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    return features
+
+
 def extract_acousticbrainz_features_low(data):
     features = {
         "average_loudness": data.get("lowlevel", {}).get("average_loudness"),
@@ -936,6 +930,23 @@ def extract_acousticbrainz_features_high(data):
         "voice_instrumental": data.get("voice_instrumental", {})
         .get("all", {})
         .get("instrumental"),
+        "mood_mirex_cluster": data.get("moods_mirex", {}).get("value"),
+        "mood_mirex_probability": data.get("moods_mirex", {}).get("probability"),
+        "mood_mirex_cluster1": data.get("moods_mirex", {})
+        .get("all", {})
+        .get("Cluster1"),
+        "mood_mirex_cluster2": data.get("moods_mirex", {})
+        .get("all", {})
+        .get("Cluster2"),
+        "mood_mirex_cluster3": data.get("moods_mirex", {})
+        .get("all", {})
+        .get("Cluster3"),
+        "mood_mirex_cluster4": data.get("moods_mirex", {})
+        .get("all", {})
+        .get("Cluster4"),
+        "mood_mirex_cluster5": data.get("moods_mirex", {})
+        .get("all", {})
+        .get("Cluster5"),
     }
     return features
 
@@ -1000,9 +1011,14 @@ def update_track_metadata_with_acousticbrainz(
             feature_raw_data.get("highlevel", {})
         )
         features_data_low = extract_acousticbrainz_features_low(feature_raw_data)
+        features_data_essentia = extract_acousticbrainz_essentia(feature_raw_data)
 
         if feature_data_high and features_data_low:
-            features_data = {**feature_data_high, **features_data_low}
+            features_data = {
+                **feature_data_high,
+                **features_data_low,
+                **features_data_essentia,
+            }
             insert_track_features(cursor, track_id, features_data)
 
 
