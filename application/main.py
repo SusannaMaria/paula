@@ -45,7 +45,7 @@ from database.database_helper import (
 from utils.logging_config import setup_logging
 import logging
 
-from updater.updater_main import run_updater
+from updater.updater_main import extract_features, run_updater
 from search.search_main import run_search
 from cover.cover_main import create_mosaic, get_album_covers
 

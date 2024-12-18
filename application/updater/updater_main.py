@@ -988,7 +988,7 @@ def get_audio_path_from_track_id(cursor, track_id):
 
     if "tracks.path" in translate_config["fields"]:
         paths = [
-            s.replace(translate_config["source"], translate_config["target"], 1) if s.startswith("world") else s
+            s.replace(translate_config["source"], translate_config["target"], 1) if s.startswith(translate_config["source"]) else s
             for s in paths
         ]
 
@@ -1106,9 +1106,9 @@ def extract_features():
             """
     cursor = create_cursor()
     tracks_for_extract_features = execute_query(cursor, query, fetch_all=True)
-    track_ids = [item["track_id"] for item in tracks_for_extract_features]
-    for row in tracks_for_extract_features:
-        print(row)
+    track_ids = [item[0] for item in tracks_for_extract_features]
+    # for row in tracks_for_extract_features:
+    #     print(row)
         
     close_cursor(cursor)
     close_connection()
@@ -1116,16 +1116,18 @@ def extract_features():
     config = load_config()
     db_config = config["database"]
     
-
-    try:
+    while not stop_update:
         with concurrent.futures.ProcessPoolExecutor(max_workers=config["extractor"]["threads"]) as executor:
             # Pass the database path and track IDs to the worker function
             future = executor.map(partial(extract_features_single, db_config["path"]), track_ids)
             # Ensure all tasks are processed
             for _ in future:
                 pass  # This ensures the tasks are executed and waits for completion
-    except KeyboardInterrupt:
-        print("\nExecution interrupted by the user. Waiting for tasks to complete...")
-        # Executor will allow tasks to finish before shutting down
-        executor.shutdown(wait=True)  # Ensure current tasks finish before stopping
-        print("All running tasks have completed. Exiting.")
+            if stop_update:
+                logger.info("Update stopped by user.")
+                break
+        
+    print("\nExecution interrupted by the user. Waiting for tasks to complete...")
+    # Executor will allow tasks to finish before shutting down
+    executor.shutdown(wait=True)  # Ensure current tasks finish before stopping
+    print("All running tasks have completed. Exiting.")
