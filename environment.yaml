@@ -20,3 +20,5 @@ dependencies:
       - plotly
       - rich
       - textual-image[textual]
+      - textual-dev
+      - pygame
