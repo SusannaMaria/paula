@@ -589,11 +589,11 @@ def run_similarity(do_normalize, input_query, do_train):
     cursor = create_cursor(asrow=True)
     max_recursion_level = 1
     if do_normalize:
-        # precompute_features(cursor)
-        feature_weights = [
-            details["weight"] for feature, details in config["features"].items()
-        ]
-        build_ann_index(cursor, feature_weights)
+        precompute_features(cursor)
+        # feature_weights = [
+        #     details["weight"] for feature, details in config["features"].items()
+        # ]
+        # build_ann_index(cursor, feature_weights)
         # compute_similarity_batch(cursor)
     else:
         sql_query, params = create_search_query(input_query)

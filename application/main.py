@@ -120,7 +120,7 @@ def main():
             "search", help="Search music in the database."
         )
         search_parser.add_argument(
-            "query", help="Search query (e.g., 'artist: Tool and genre: Rock')."
+            "--query", help="Search query (e.g., 'artist: Tool and genre: Rock')."
         )
         subparsers.add_parser("backup", help="Backup database into file")
         subparsers.add_parser("restore", help="Restore database from file")
@@ -139,10 +139,12 @@ def main():
             help="Train weights based on user feedback",
         )
         similarity_parser.add_argument(
-            "query",
+            "--query",
             help="Search query (e.g., 'artist: Tool and genre: Rock').",
             default=None,
+            required=False,
         )
+
         args = parser.parse_args()
 
         if args.command == "import":

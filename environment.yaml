@@ -18,3 +18,5 @@ dependencies:
       - pydub
       - pyvis
       - plotly
+      - rich
+      - textual-image[textual]
