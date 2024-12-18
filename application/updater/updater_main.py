@@ -25,9 +25,11 @@
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
     THE SOFTWARE.
 """
-
+import concurrent.futures
+from functools import partial
 from datetime import datetime
 from pathlib import Path
+import sqlite3
 import requests
 import time
 import logging
@@ -980,6 +982,15 @@ def get_audio_path_from_track_id(cursor, track_id):
     results = execute_query(cursor, query, params="", fetch_one=False, fetch_all=True)
 
     paths = [row[0] for row in results]
+    
+    config = load_config()
+    translate_config = config["local_translate_audio_path"]
+
+    if "tracks.path" in translate_config["fields"]:
+        paths = [
+            s.replace(translate_config["source"], translate_config["target"], 1) if s.startswith("world") else s
+            for s in paths
+        ]
 
     if paths:
         return Path(paths[0])
@@ -1004,22 +1015,6 @@ def update_track_metadata_with_acousticbrainz(
                 acousticbrainz_features_high | acousticbrainz_features_low
             )
             insert_track_features(cursor, track_id, acousticbrainz_features)
-    else:
-        audio_path = get_audio_path_from_track_id(cursor, track_id)
-        feature_raw_data = run_essentia_extractor(audio_path)
-        feature_data_high = extract_acousticbrainz_features_high(
-            feature_raw_data.get("highlevel", {})
-        )
-        features_data_low = extract_acousticbrainz_features_low(feature_raw_data)
-        features_data_essentia = extract_acousticbrainz_essentia(feature_raw_data)
-
-        if feature_data_high and features_data_low:
-            features_data = {
-                **feature_data_high,
-                **features_data_low,
-                **features_data_essentia,
-            }
-            insert_track_features(cursor, track_id, features_data)
 
 
 def run_updater(scope, retry_errors, update_valid_entries, extract_features):
@@ -1063,3 +1058,74 @@ def run_updater(scope, retry_errors, update_valid_entries, extract_features):
     close_connection()
 
     logger.info("MusicBrainz updater completed.")
+
+def extract_features_single(db_path, track_id):
+    """
+    Extract features for a single track ID using a new database connection.
+    
+    Args:
+        db_path (str): Path to the SQLite database file.
+        track_id (int): The track ID to process.
+    """
+    try:
+        # Create a new connection and cursor for the process
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Feature extraction logic
+        audio_path = get_audio_path_from_track_id(cursor, track_id)
+        feature_raw_data = run_essentia_extractor(audio_path)
+        feature_data_high = extract_acousticbrainz_features_high(
+            feature_raw_data.get("highlevel", {})
+        )
+        features_data_low = extract_acousticbrainz_features_low(feature_raw_data)
+        features_data_essentia = extract_acousticbrainz_essentia(feature_raw_data)
+
+        if feature_data_high and features_data_low:
+            features_data = {
+                **feature_data_high,
+                **features_data_low,
+                **features_data_essentia,
+            }
+            insert_track_features(cursor, track_id, features_data)
+        
+        conn.commit()  # Commit the transaction
+    except Exception as e:
+        print(f"Error processing track ID {track_id}: {e}")
+    finally:
+        conn.close()  # Ensure the connection is closed
+
+def extract_features():
+    signal.signal(signal.SIGINT, signal_handler)
+    query = """
+            SELECT t.track_id, t.musicbrainz_release_track_id
+            FROM tracks t
+            LEFT JOIN track_features tf ON t.track_id = tf.track_id
+            WHERE tf.track_id IS NULL;
+            """
+    cursor = create_cursor()
+    tracks_for_extract_features = execute_query(cursor, query, fetch_all=True)
+    track_ids = [item["track_id"] for item in tracks_for_extract_features]
+    for row in tracks_for_extract_features:
+        print(row)
+        
+    close_cursor(cursor)
+    close_connection()
+    
+    config = load_config()
+    db_config = config["database"]
+    
+
+    try:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=config["extractor"]["threads"]) as executor:
+            # Pass the database path and track IDs to the worker function
+            future = executor.map(partial(extract_features_single, db_config["path"]), track_ids)
+            # Ensure all tasks are processed
+            for _ in future:
+                pass  # This ensures the tasks are executed and waits for completion
+    except KeyboardInterrupt:
+        print("\nExecution interrupted by the user. Waiting for tasks to complete...")
+        # Executor will allow tasks to finish before shutting down
+        executor.shutdown(wait=True)  # Ensure current tasks finish before stopping
+        print("All running tasks have completed. Exiting.")

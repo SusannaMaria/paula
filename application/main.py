@@ -152,12 +152,15 @@ def main():
             run_import(args.directory, retry_errors=args.retry_errors)
 
         elif args.command == "update":
-            run_updater(
-                args.type,
-                retry_errors=args.retry_errors,
-                update_valid_entries=args.update_valid_entries,
-                extract_features=args.extract_features,
-            )
+            if args.extract_features:
+                extract_features()
+            else:
+                run_updater(
+                    args.type,
+                    retry_errors=args.retry_errors,
+                    update_valid_entries=args.update_valid_entries,
+                    extract_features=args.extract_features,
+                )
         elif args.command == "search":
             run_search(args.query)
         elif args.command == "mosaic":

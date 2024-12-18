@@ -46,6 +46,10 @@ isconnected = False
 def close_connection():
     conn.close()
 
+def cursor_factory():
+    conn = sqlite3.connect(db_config["path"])
+    conn.row_factory = sqlite3.Row
+    return conn.cursor()
 
 # Establish Database Connection
 def get_connection(asrow=False):

@@ -1,5 +1,10 @@
 # paula
 
+## Install
+`conda env create --file=environment.yaml`
+
+
+
 ```
 "Part Zero" from "The Pineapple Thief" out of "3000 Days"
 -> "In My Garden" from "Swans" out of "Children of God"
