@@ -38,7 +38,7 @@ class MusicDatabaseWidget(Container):
         cursor = connection.cursor()
 
         # Retrieve artists and albums
-        cursor.execute("SELECT id, name FROM artists")
+        cursor.execute("SELECT artist_id, name FROM artists")
         artists = cursor.fetchall()
 
         self.original_data = {}  # Reset metadata storage
@@ -54,7 +54,7 @@ class MusicDatabaseWidget(Container):
 
             # Fetch albums for the artist
             cursor.execute(
-                "SELECT id, title FROM albums WHERE artist_id = ?", (artist_id,)
+                "SELECT album_id, name FROM albums WHERE artist_id = ?", (artist_id,)
             )
             albums = cursor.fetchall()
             if not albums:
@@ -159,10 +159,11 @@ class MusicDatabaseApp(App):
         """Compose the UI with a horizontal layout."""
         with Horizontal():
             music_db = MusicDatabaseWidget(
-                database_path="paula.db",
+                database_path="database/paula.sqlite",
                 on_album_selected=self.show_album_tracks,
                 id="music_panel",
             )
+            yield music_db
             with Vertical():
                 track_table = TrackTableWidget(id="track_table")
                 playlist = PlaylistWidget(id="playlist_table")
@@ -172,11 +173,11 @@ class MusicDatabaseApp(App):
                 yield track_table
                 yield playlist
 
-            yield music_db
-
     def show_album_tracks(self, album_id: int):
         """Show tracks for the selected album."""
-        self.track_table.populate_tracks(album_id, database_path="paula.db")
+        self.track_table.populate_tracks(
+            album_id, database_path="database/paula.sqlite"
+        )
 
 
 if __name__ == "__main__":

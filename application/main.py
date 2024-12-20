@@ -29,6 +29,7 @@
 
 import sys
 
+from updater.updater_audio_files import update_database_with_audiofiles
 from gui.treelist import MusicDatabaseApp
 from similarity.similarity_main import run_similarity
 
@@ -117,6 +118,14 @@ def main():
             action="store_true",
             help="Update valid entries",
         )
+        update_parser.add_argument(
+            "--audio-files",
+            action="store_true",
+            help="Update database checking audiofiles",
+        )
+        update_parser.add_argument(
+            "--directory", help="Directory containing audio files to import."
+        )
         # Search Command
         search_parser = subparsers.add_parser(
             "search", help="Search music in the database."
@@ -158,6 +167,8 @@ def main():
         elif args.command == "update":
             if args.extract_features:
                 extract_features()
+            elif args.audio_files and args.directory:
+                update_database_with_audiofiles(args.directory)
             else:
                 run_updater(
                     args.type,
