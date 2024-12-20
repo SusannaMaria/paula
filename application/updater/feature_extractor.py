@@ -44,7 +44,6 @@ def run_essentia_extractor(input_file):
         "-",  # Output to stdout
         "/etc/essentia/profile.yaml",
     ]
-
     # Bind mount the input file
     volumes = {input_file: {"bind": target_file, "mode": "ro"}}  # Read-only bind
 

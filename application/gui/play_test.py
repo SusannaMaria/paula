@@ -69,6 +69,6 @@ class AudioPlayerApp(App):
 
 # Run the application
 if __name__ == "__main__":
-    audio_file_path = " /mnt/c/temp/test2.flac"
+    audio_file_path = r"c:\temp\test2.flac"
     app = AudioPlayerApp(audio_file_path)
     app.run()

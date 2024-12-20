@@ -33,7 +33,7 @@ from textual.widgets.option_list import Option
 from textual_image.widget import HalfcellImage, SixelImage, TGPImage, UnicodeImage
 from textual_image.widget import Image as AutoImage
 
-TEST_IMAGE = "/mnt/c/temp/cover.jpg"
+TEST_IMAGE = r"c:\temp\cover.jpg"
 
 
 RENDERING_METHODS = {

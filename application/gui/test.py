@@ -40,7 +40,7 @@ RENDERING_METHODS = {
 }
 
 console = Console()
-filename_cover = "/mnt/c/temp/cover.jpg"
+filename_cover = r"c:\temp\cover.jpg"
 Image = RENDERING_METHODS["auto"]
 current_cover_state = None
 
@@ -113,7 +113,7 @@ class Header:
 
 
 def make_cover_panel(content):
-    return Panel(Image("/mnt/c/temp/cover.png", width=20, height="auto"), expand=False)
+    return Panel(Image(r"c:\temp\cover.png", width=20, height="auto"), expand=False)
 
 
 def update_cover_panel(layout, new_content):

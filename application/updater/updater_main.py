@@ -998,7 +998,7 @@ def get_audio_path_from_track_id(cursor, track_id):
         ]
 
     if paths:
-        return Path(paths[0])
+        return paths[0]
 
 
 def update_track_metadata_with_acousticbrainz(
