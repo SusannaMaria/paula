@@ -29,6 +29,7 @@
 
 import sys
 
+from gui.treelist import MusicDatabaseApp
 from similarity.similarity_main import run_similarity
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -63,6 +64,7 @@ def main():
         subparsers = parser.add_subparsers(dest="command", required=True)
 
         subparsers.add_parser("mosaic", help="Creat mosaic from cover images.")
+        subparsers.add_parser("gui", help="Use the gui.")
         cover_parser = subparsers.add_parser(
             "cover", help="Get cover images from audio files."
         )
@@ -180,6 +182,8 @@ def main():
             run_similarity(
                 do_normalize=args.normalize, input_query=args.query, do_train=args.train
             )
+        elif args.command == "gui":
+            MusicDatabaseApp().run()
 
         close_connection()
     except Exception as e:
