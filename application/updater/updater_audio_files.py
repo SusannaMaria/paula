@@ -6,8 +6,12 @@ from importer.importer_main import extract_valid_uuids, get_tag
 from database.database_helper import (
     close_connection,
     close_cursor,
+    commit,
     create_cursor,
     execute_query,
+    insert_album,
+    insert_artist,
+    insert_track,
 )
 import uuid
 from mutagen.mp4 import MP4
@@ -30,6 +34,7 @@ def process_audio_file_flac(cursor, file_path):
     metadata["artist"] = audio["artists"][0]
     metadata["tracknumber"] = f'{audio["tracknumber"][0]}/{audio["totaltracks"][0]}'
     metadata["album"] = audio["album"][0]
+    metadata["barcode"] = audio.get("barcode", [None])[0]
     metadata["title"] = audio["title"][0]
     metadata["discnumber"] = audio["discnumber"][0]
     metadata["genre"] = audio.get("genre", ["Unknown Genre"])[0]
@@ -112,7 +117,7 @@ def process_audio_file_mp3(cursor, file_path):
     metadata_result["release_date"] = year
     metadata_result["length"] = (
         f"{int(audio.info.length // 60)}:{int(audio.info.length % 60)}",
-    )
+    )[0]
 
     metadata_result["barcode"] = get_tag(metadata, "TXXX:BARCODE")
 
@@ -141,7 +146,7 @@ def process_audio_file_mp3(cursor, file_path):
 
 
 def process_audio_file_m4a(cursor, file_path):
-    logger.info(f"Processing: {file_path}")
+    logger.debug(f"Processing: {file_path}")
 
     try:
         audio = MP4(file_path)
@@ -166,6 +171,7 @@ def process_audio_file_m4a(cursor, file_path):
                     0
                 ].decode("utf-8")
             ),
+            "barcode": audio.tags.get("----:com.apple.iTunes:BARCODE", [None])[0],
             "title": audio.tags.get("©nam", [None])[0],
             "album": audio.tags.get("©alb", [None])[0],
             "artist": audio.tags.get("aART", [None])[0],
@@ -208,7 +214,7 @@ def scan_filesystem(directory, cursor):
             if file.lower().endswith(extensions):
                 audio_file = os.path.join(root, file)
                 if not path_exists_in_tracks(cursor, audio_file):
-                    logger.info(f"Missing track in db: {audio_file}")
+                    logger.debug(f"Missing track in db: {audio_file}")
                     if file.lower().endswith(".m4a"):
                         metadata = process_audio_file_m4a(cursor, audio_file)
                     elif file.lower().endswith(".mp3"):
@@ -222,7 +228,86 @@ def scan_filesystem(directory, cursor):
 
 
 def process_track_entry(cursor, metadata):
-    
+    new_track_mb_id = None
+    new_artist_mb_id = None
+    new_album_mb_id = None
+
+    SQL = "SELECT musicbrainz_release_track_id, path FROM tracks where musicbrainz_release_track_id = ?"
+    track_id = execute_query(
+        cursor,
+        SQL,
+        (metadata.get("musicbrainz_release_track_id"),),
+        fetch_one=True,
+    )
+    # Files are duplicated!
+    if track_id:
+        logger.info(
+            f'Duplicated entry, will be ignored. {track_id[1]} - {metadata.get("title")} - {metadata.get("artist")} - {metadata.get("album")} - {metadata.get("path")}'
+        )
+    else:
+        new_track_mb_id = metadata.get("musicbrainz_release_track_id")
+        # check Artist Entry
+        SQL = "select artist_id,name from artists where musicbrainz_artist_id = ?"
+        artist = execute_query(
+            cursor,
+            SQL,
+            (metadata.get("musicbrainz_artist_id"),),
+            fetch_one=True,
+        )
+        if not artist:
+            new_artist_mb_id = metadata.get("musicbrainz_artist_id")
+        else:
+            logger.info(f'Artist found, {artist[1]} - {metadata.get("artist")}')
+            artist_id = artist[0]
+
+        # check Artist Entry
+        SQL = "select album_id,name from albums where musicbrainz_album_id = ?"
+        album = execute_query(
+            cursor,
+            SQL,
+            (metadata.get("musicbrainz_album_id"),),
+            fetch_one=True,
+        )
+        if not album:
+            new_album_mb_id = metadata.get("musicbrainz_album_id")
+        else:
+            logger.info(f'Album found, {album[1]} - {metadata.get("album")}')
+            album_id = album[0]
+
+    if new_artist_mb_id:
+        artist_id = insert_artist(cursor, metadata["artist"], new_artist_mb_id, True)
+        logger.info(f'Artist added: {metadata["artist"]}')
+
+    if new_album_mb_id:
+        album_id = insert_album(
+            cursor,
+            metadata["album"],
+            artist_id,
+            new_album_mb_id,
+            metadata["barcode"],
+            metadata["release_date"],
+            True,
+            os.path.dirname(metadata["path"]),
+        )
+        logger.info(f'Album added: {metadata["album"]}')
+    if new_track_mb_id:
+        track_id = insert_track(
+            cursor,
+            metadata["title"],
+            artist_id,
+            album_id,
+            metadata["genre"],
+            metadata["release_date"],
+            metadata["tracknumber"],
+            metadata["path"],
+            new_track_mb_id,
+            True,
+            metadata["length"],
+        )
+        if track_id:
+            logger.info(f'Track added: {metadata["title"]}')
+    if new_artist_mb_id or new_album_mb_id or new_track_mb_id:
+        commit()
 
 
 def update_database_with_audiofiles(directory):

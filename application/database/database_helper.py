@@ -46,10 +46,12 @@ isconnected = False
 def close_connection():
     conn.close()
 
+
 def cursor_factory():
     conn = sqlite3.connect(db_config["path"])
     conn.row_factory = sqlite3.Row
     return conn.cursor()
+
 
 # Establish Database Connection
 def get_connection(asrow=False):
@@ -505,6 +507,7 @@ def insert_track(
     path,
     musicbrainz_release_track_id,
     is_musicbrainz_valid,
+    length="0:00",
 ):
     global conn
     if is_musicbrainz_valid:
@@ -517,9 +520,9 @@ def insert_track(
         cursor.execute(
             """
             INSERT OR IGNORE INTO tracks (
-                title, artist_id, album_id, genre, year, track_number, path, musicbrainz_release_track_id, is_musicbrainz_valid
+                title, artist_id, album_id, genre, year, track_number, path, musicbrainz_release_track_id, is_musicbrainz_valid,length
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
             (
                 title,
@@ -531,6 +534,7 @@ def insert_track(
                 path,
                 musicbrainz_release_track_id,
                 db_valid,
+                length,
             ),
         )
 
