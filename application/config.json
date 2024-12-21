@@ -78,6 +78,45 @@
         },
         "mood_sad": {
             "weight": 0.9221423793362923
+        },
+        "mood_mirex_cluster1": {
+            "weight": 1.0
+        },
+        "mood_mirex_cluster2": {
+            "weight": 1.0
+        },
+        "mood_mirex_cluster3": {
+            "weight": 1.0
+        },
+        "mood_mirex_cluster4": {
+            "weight": 1.0
+        },
+        "mood_mirex_cluster5": {
+            "weight": 1.0
+        },
+        "timbre": {
+            "weight": 1.0
+        },
+        "tonal_atonal": {
+            "weight": 1.0
+        },
+        "genre_blues": {
+            "weight": 1.0
+        },
+        "genre_electronic_ambient": {
+            "weight": 1.0
+        },
+        "genre_electronic_dnb": {
+            "weight": 1.0
+        },
+        "genre_electronic_house": {
+            "weight": 1.0
+        },
+        "genre_electronic_techno": {
+            "weight": 1.0
+        },
+        "genre_electronic_trance": {
+            "weight": 1.0
         }
     }
 }
