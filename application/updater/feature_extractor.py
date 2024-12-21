@@ -32,6 +32,8 @@ def run_essentia_extractor(input_file):
         target_file = "/tmp/test.mp3"
     elif extension.lower() == ".flac":
         target_file = "/tmp/test.flac"
+    elif extension.lower() == ".m4a":
+        target_file = "/tmp/test.m4a"
     else:
         logger.error(f"Not supported: {input_file}")
         exit()

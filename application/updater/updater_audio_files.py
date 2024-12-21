@@ -31,6 +31,12 @@ def process_audio_file_flac(cursor, file_path):
             musicbrainz_tags[tag] = (
                 audio[tag][0] if isinstance(audio[tag], list) else audio[tag]
             )
+
+    if "artists" not in audio:
+        print(f"dsjhshfshf {file_path}")
+
+    print(audio["artists"][0])
+
     metadata["artist"] = audio["artists"][0]
     metadata["tracknumber"] = f'{audio["tracknumber"][0]}/{audio["totaltracks"][0]}'
     metadata["album"] = audio["album"][0]
@@ -310,11 +316,34 @@ def process_track_entry(cursor, metadata):
         commit()
 
 
-def update_database_with_audiofiles(directory):
+def find_missing_tracks():
+    """Find tracks in the database whose audio files are missing on the filesystem."""
     cursor = create_cursor()
-    metadatas = scan_filesystem(directory, cursor)
-    for metadata in metadatas:
-        process_track_entry(cursor, metadata)
 
+    # Fetch all file paths from the database
+    cursor.execute("SELECT track_id, path FROM tracks")
+    tracks = cursor.fetchall()
+
+    missing_tracks = []
+
+    for track_id, file_path in tracks:
+        if not os.path.exists(file_path):
+            missing_tracks.append({"id": track_id, "file_path": file_path})
+    return missing_tracks
     close_cursor(cursor)
     close_connection()
+
+
+def update_database_with_audiofiles(directory, check_files):
+    if check_files:
+        missing_tracks = find_missing_tracks()
+        for missing_track in missing_tracks:
+            print(missing_track["file_path"])
+    else:
+        cursor = create_cursor()
+        metadatas = scan_filesystem(directory, cursor)
+        for metadata in metadatas:
+            process_track_entry(cursor, metadata)
+
+        close_cursor(cursor)
+        close_connection()

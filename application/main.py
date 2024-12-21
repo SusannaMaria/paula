@@ -124,6 +124,11 @@ def main():
             help="Update database checking audiofiles",
         )
         update_parser.add_argument(
+            "--check",
+            action="store_true",
+            help="Check if audio files stored in Database exist in folder.",
+        )
+        update_parser.add_argument(
             "--directory", help="Directory containing audio files to import."
         )
         # Search Command
@@ -168,7 +173,7 @@ def main():
             if args.extract_features:
                 extract_features()
             elif args.audio_files and args.directory:
-                update_database_with_audiofiles(args.directory)
+                update_database_with_audiofiles(args.directory, args.check)
             else:
                 run_updater(
                     args.type,
