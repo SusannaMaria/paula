@@ -38,7 +38,7 @@ class UnicodeFormatter(logging.Formatter):
         return msg.encode("unicode_escape").decode("utf-8")
 
 
-def setup_logging(default_level=logging.INFO):
+def setup_logging(default_level=logging.DEBUG):
     log_config = {
         "version": 1,
         "disable_existing_loggers": False,

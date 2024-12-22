@@ -58,10 +58,8 @@ def main():
     logger = logging.getLogger(__name__)
 
     try:
-        logger.info("Application started")
-        # Existing application logic...
-
         parser = argparse.ArgumentParser(description="Music Database Manager")
+        parser.add_argument("--log", default="INFO", help="Set the logging level")
         subparsers = parser.add_subparsers(dest="command", required=True)
 
         subparsers.add_parser("mosaic", help="Creat mosaic from cover images.")
@@ -162,6 +160,9 @@ def main():
         )
 
         args = parser.parse_args()
+        setup_logging(args.log.upper())
+        logger = logging.getLogger(__name__)
+        logger.info("Application started")
 
         if args.command == "import":
             if args.clean:
