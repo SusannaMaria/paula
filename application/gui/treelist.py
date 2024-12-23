@@ -1,5 +1,6 @@
 import logging
 from time import sleep
+from database.database_helper import get_cover_by_album_id
 from textual.app import App, ComposeResult
 from textual.widgets import Tree, Input, DataTable, Static, Log
 from textual.containers import Container, Vertical, Horizontal
@@ -244,7 +245,7 @@ class MusicDatabaseApp(App):
         old_widget = self.query_one("#image_widget")
         logging.info(old_widget)
 
-        Image = RENDERING_METHODS["auto"]
+        Image = RENDERING_METHODS["halfcell"]
         new_image_widget = Image(image_path, id="image_widget")
         yield new_image_widget
 
@@ -275,7 +276,7 @@ class MusicDatabaseApp(App):
 
                 yield self.log_widget
             with Vertical(id="metadata"):
-                Image = RENDERING_METHODS["auto"]
+                Image = RENDERING_METHODS["halfcell"]
                 self.image_widget = Image(TEST_IMAGE, id="image_widget")
                 yield self.image_widget
 
@@ -285,10 +286,14 @@ class MusicDatabaseApp(App):
         self.track_table.populate_tracks(
             album_id, database_path="database/paula.sqlite"
         )
-        image_path = "/mnt/c/temp/cover.jpg"
-
-        image_widget = self.query_one("#image_widget")
-        image_widget.image = image_path
+        database_path = "database/paula.sqlite"
+        connection = sqlite3.connect(database_path)
+        cursor = connection.cursor()
+        cover_path = get_cover_by_album_id(cursor, album_id)
+        if cover_path:
+            image_widget = self.query_one("#image_widget")
+            image_widget.image = cover_path
+        connection.close()
 
 
 if __name__ == "__main__":

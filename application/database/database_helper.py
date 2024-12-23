@@ -26,6 +26,7 @@
     THE SOFTWARE.
 """
 
+from pathlib import Path
 import sys
 from utils.config_loader import load_config
 import logging
@@ -493,6 +494,29 @@ def get_track_by_id(cursor, track_id):
 
     result = cursor.fetchone()
     return result
+
+
+def get_cover_by_album_id(cursor, album_id):
+    SQL_QUERY = """SELECT 
+            folder_path 
+        FROM 
+            albums 
+        where
+        album_id = ?;"""
+    cursor.execute(
+        SQL_QUERY,
+        (album_id,),
+    )
+    result = cursor.fetchone()
+    cover_path = Path(result[0]) / "cover.jpg"
+    if cover_path.exists():
+        return cover_path
+    else:
+        cover_path = Path(result[0]) / "cover.png"
+    if cover_path.exists():
+        return cover_path
+
+    return None
 
 
 # Example: Insert track
