@@ -1,12 +1,16 @@
 import logging
 from time import sleep
 from textual.app import App, ComposeResult
-from textual.widgets import Tree, Input, DataTable, Static
+from textual.widgets import Tree, Input, DataTable, Static, Log
 from textual.containers import Container, Vertical, Horizontal
 import sqlite3
 from textual_image.widget import HalfcellImage, SixelImage, TGPImage, UnicodeImage
 from textual_image.widget import Image as AutoImage
 
+from typing import Iterable
+
+from textual.app import App, SystemCommand
+from textual.screen import Screen
 
 # Configure logging for debugging
 logging.basicConfig(
@@ -27,11 +31,14 @@ TEST_IMAGE = r"/mnt/c/temp/cover_d.jpg"
 class MusicDatabaseWidget(Container):
     """A widget to display the music database as a tree structure with a search bar."""
 
-    def __init__(self, database_path: str, on_album_selected=None, **kwargs):
+    def __init__(
+        self, database_path: str, on_album_selected=None, log_widget=None, **kwargs
+    ):
         super().__init__(**kwargs)
         self.database_path = database_path
         self.on_album_selected = on_album_selected  # Callback for album selection
         self.original_data = {}  # Store metadata for filtering
+        self.log_widget = log_widget
 
     def compose(self) -> ComposeResult:
         """Compose the widget with a search bar and a Tree."""
@@ -78,7 +85,11 @@ class MusicDatabaseWidget(Container):
                 album_label = f"📀 {album_title}"
                 album_node = artist_node.add(album_label, allow_expand=False)
                 album_node.album_id = album_id  # Store album_id in the node
-                logging.debug(f"Album Node Added: {album_label} (ID: {album_id})")
+                # log = self.query_one("#logview")
+                self.log_widget.write_line(
+                    f"Album Node Added: {album_label} (ID: {album_id})"
+                )
+
                 node_data = {
                     "label": album_label,
                     "allow_expand": False,
@@ -131,7 +142,10 @@ class MusicDatabaseWidget(Container):
                         )
                         if node and "album_id" in data:
                             node.album_id = data["album_id"]
-                            logging.debug(f"Filtered Album Node Added: {data['label']}")
+
+                            self.log_widget.write_line(
+                                f"Filtered Album Node Added: {data['label']}"
+                            )
                 else:
                     node = tree.root.add(
                         data["label"], allow_expand=data["allow_expand"]
@@ -140,29 +154,32 @@ class MusicDatabaseWidget(Container):
 
                     if "album_id" in data:
                         node.album_id = data["album_id"]
-                        logging.debug(f"Filtered Album Node Added: {data['label']}")
+                        self.log_widget.write_line(
+                            f"Filtered Album Node Added: {data['label']}"
+                        )
 
     async def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         """Handle node selection in the tree."""
         node = event.node
         logging.debug(f"Node Selected: {node.label}")
         if hasattr(node, "album_id") and self.on_album_selected:
-            logging.debug(f"Album Selected: {node.album_id}")
+            self.log_widget.write_line(f"Album Selected: {node.album_id}")
             self.on_album_selected(node.album_id)
 
 
 class TrackTableWidget(DataTable):
     """A widget to display tracks of a selected album."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, log_widget=None, **kwargs):
         super().__init__(**kwargs)
         self.add_column("Track Number", width=10)
         self.add_column("Title", width=40)
+        self.log_widget = log_widget
 
     def populate_tracks(self, album_id: int, database_path: str):
         """Populate the table with tracks for the given album."""
         self.clear()  # Clear existing tracks
-        logging.debug(f"Populating tracks for album ID: {album_id}")
+        self.log_widget.write_line(f"Populating tracks for album ID: {album_id}")
         connection = sqlite3.connect(database_path)
         cursor = connection.cursor()
 
@@ -180,11 +197,12 @@ class TrackTableWidget(DataTable):
 class PlaylistWidget(DataTable):
     """A widget to display the playlist."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, log_widget=None, **kwargs):
         super().__init__(**kwargs)
         self.add_column("Title", width=30)
         self.add_column("Artist", width=30)
         self.add_column("Album", width=30)
+        self.log_widget = log_widget
 
     def add_track(self, track_id: int, title: str, artist: str, album: str):
         """Add a track to the playlist."""
@@ -194,18 +212,29 @@ class PlaylistWidget(DataTable):
 class MusicDatabaseApp(App):
     """Textual App to display the MusicDatabaseWidget."""
 
+    COMMAND_PALETTE_BINDING = "ctrl+backslash"
     CSS = """
     #track_table {
         height: 50%;
     }
     #image_widget {
-        width: 15%;
+        width: 100%;
         height: 30%
     }
     #playlist_table {
-        height: 50%;
+        height: 20%;
     }
+    #tracklist {
+        width: 60%;
+    }
+    #metadata {
+        width: 15%;
+    }    
     """
+
+    def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
+        yield from super().get_system_commands(screen)
+        yield SystemCommand("Bell", "Ring the bell", self.bell)
 
     def on_album_selected(self, album_id: int):
         """Handle album selection event."""
@@ -219,34 +248,36 @@ class MusicDatabaseApp(App):
         new_image_widget = Image(image_path, id="image_widget")
         yield new_image_widget
 
-        # if old_widget:
-        # old_widget = new_image_widget
-
-        # container = self.query_one(Horizontal)
-
-        # container.replace(new_image_widget)
-
-        # logging.info(f"Updating image to: {image_path}")
-
     def compose(self) -> ComposeResult:
         """Compose the UI with a horizontal layout."""
+        self.log_widget = Log(id="logview")
         with Horizontal():
             music_db = MusicDatabaseWidget(
                 database_path="database/paula.sqlite",
                 on_album_selected=self.show_album_tracks,
                 id="music_panel",
+                log_widget=self.log_widget,
             )
             yield music_db
-            with Vertical():
-                track_table = TrackTableWidget(id="track_table")
+            with Vertical(id="tracklist"):
+                yield Input(placeholder="Search Tracks ...", id="search_bar_tracks")
+                track_table = TrackTableWidget(
+                    id="track_table", log_widget=self.log_widget
+                )
                 yield track_table
 
-                playlist = PlaylistWidget(id="playlist_table")
+                playlist = PlaylistWidget(
+                    id="playlist_table",
+                    log_widget=self.log_widget,
+                )
                 self.track_table = track_table  # Store reference for updates
                 yield playlist
-            Image = RENDERING_METHODS["auto"]
-            self.image_widget = Image(TEST_IMAGE, id="image_widget")
-            yield self.image_widget
+
+                yield self.log_widget
+            with Vertical(id="metadata"):
+                Image = RENDERING_METHODS["auto"]
+                self.image_widget = Image(TEST_IMAGE, id="image_widget")
+                yield self.image_widget
 
     def show_album_tracks(self, album_id: int):
         global TEST_IMAGE
