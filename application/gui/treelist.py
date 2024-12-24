@@ -1,8 +1,20 @@
 import logging
 from time import sleep
+from gui.genre_slider import GenreSliders
 from database.database_helper import get_cover_by_album_id
 from textual.app import App, ComposeResult
-from textual.widgets import Tree, Input, DataTable, Static, Log
+from textual.widgets import (
+    Tree,
+    Input,
+    DataTable,
+    Static,
+    Log,
+    Button,
+    Tabs,
+    Tab,
+    TabbedContent,
+    TabPane,
+)
 from textual.containers import Container, Vertical, Horizontal
 import sqlite3
 from textual_image.widget import HalfcellImage, SixelImage, TGPImage, UnicodeImage
@@ -26,6 +38,11 @@ RENDERING_METHODS = {
     "unicode": UnicodeImage,
 }
 
+NAMES = [
+    "Artists",
+    "Genres",
+]
+
 TEST_IMAGE = r"/mnt/c/temp/cover_d.jpg"
 
 
@@ -43,8 +60,24 @@ class MusicDatabaseWidget(Container):
 
     def compose(self) -> ComposeResult:
         """Compose the widget with a search bar and a Tree."""
-        yield Input(placeholder="Search Artists or Albums ...", id="search_bar")
-        yield Tree("Music Database", id="music_tree")  # Assign the Tree an ID
+        # yield Tabs(
+        #     Tab(NAMES[0], id="tree_artists_tab"), Tab(NAMES[1], id="tree_genres_tab")
+        # )
+        with TabbedContent(initial="tree_artists_tab"):
+            with TabPane("Artists->Albums", id="tree_artists_tab"):
+                yield Input(placeholder="Search Artists or Albums ...", id="search_bar")
+                yield Tree("Music Database", id="music_tree")  # Assign the Tree an ID
+            with TabPane("Genres->Artists", id="tree_genres_artists_tab"):
+                yield GenreSliders(id="genre_slider")
+                yield Tree("Genre Tree", id="genre_tree")
+
+    def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
+        """Handle TabActivated message sent by Tabs."""
+
+        if event.tab.id == "tree_artists_tab":
+            self.log_widget.write_line("Artist Tab")
+        elif event.tab.id == "tree_genres_tab":
+            self.log_widget.write_line("Genres Tab")
 
     def on_mount(self) -> None:
         """Populate the tree and store the original data for filtering."""
@@ -231,6 +264,37 @@ class MusicDatabaseApp(App):
     #metadata {
         width: 15%;
     }    
+    #media_controls {
+    height: 7%;
+    margin: 0;
+    } 
+    #search_bar_tracks {
+    width: 40%;
+    }
+    /* Style for all control buttons */
+    .control-button {
+        background: black;
+        color: white;
+        border: solid gray;
+        width: 5; /* Fixed width for uniform size */
+        height: 3; /* Fixed height */
+        margin: 1; /* Spacing between buttons */
+        text-align: center;
+        padding: 0;
+    }
+    Button.red {
+        background: red;
+        color: white;
+        width: 4;
+            }
+    /* Hover effect */
+    .control-button:hover {
+        background: darkgray;
+        color: black;
+    }    
+     Tabs {
+        dock: top;
+    }
     """
 
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
@@ -261,7 +325,9 @@ class MusicDatabaseApp(App):
             )
             yield music_db
             with Vertical(id="tracklist"):
-                yield Input(placeholder="Search Tracks ...", id="search_bar_tracks")
+                with Horizontal(id="media_controls"):
+                    yield Input(placeholder="Search Tracks ...", id="search_bar_tracks")
+                    yield Button("PLAY", classes="red", id="red_button")
                 track_table = TrackTableWidget(
                     id="track_table", log_widget=self.log_widget
                 )

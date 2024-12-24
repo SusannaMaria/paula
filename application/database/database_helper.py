@@ -470,6 +470,16 @@ def insert_album(
         sys.exit(1)
 
 
+def get_tracks_between_by_genre(cursor, genre, lower_bound, upper_bound):
+    query = f"SELECT track_id FROM track_features WHERE genre_{genre} BETWEEN ? AND ?;"
+
+    cursor.execute(query, (lower_bound, upper_bound))
+
+    tracks_in_range = cursor.fetchall()
+
+    return [row[0] for row in tracks_in_range]
+
+
 def get_track_by_id(cursor, track_id):
     SQL_QUERY = """SELECT 
             t.track_id AS track_id,

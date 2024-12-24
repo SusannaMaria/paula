@@ -29,6 +29,7 @@
 
 import sys
 
+from database.genre import collect_genres
 from updater.updater_audio_files import update_database_with_audiofiles
 from gui.treelist import MusicDatabaseApp
 from similarity.similarity_main import run_similarity
@@ -133,6 +134,9 @@ def main():
         search_parser = subparsers.add_parser(
             "search", help="Search music in the database."
         )
+        genre_parser = subparsers.add_parser(
+            "genre", help="Process genres in the database."
+        )
         search_parser.add_argument(
             "--query", help="Search query (e.g., 'artist: Tool and genre: Rock')."
         )
@@ -184,6 +188,8 @@ def main():
                 )
         elif args.command == "search":
             run_search(args.query)
+        elif args.command == "genre":
+            collect_genres()
         elif args.command == "mosaic":
             create_mosaic()
         elif args.command == "cover":
