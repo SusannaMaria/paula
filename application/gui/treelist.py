@@ -1,5 +1,6 @@
 import logging
 from time import sleep
+from gui.events import CustomClickEvent
 from gui.genre_slider import GenreSliders
 from database.database_helper import get_cover_by_album_id
 from textual.app import App, ComposeResult
@@ -24,6 +25,8 @@ from typing import Iterable
 
 from textual.app import App, SystemCommand
 from textual.screen import Screen
+from textual.message import Message
+from textual.widget import Widget
 
 # Configure logging for debugging
 logging.basicConfig(
@@ -296,6 +299,12 @@ class MusicDatabaseApp(App):
         dock: top;
     }
     """
+
+    def on_custom_click_event(self, event: CustomClickEvent) -> None:
+        # Handle the custom event
+        self.log_widget.write_line(
+            f"{event.description} - {event.genre} - {event.lower} - {event.upper}"
+        )
 
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
         yield from super().get_system_commands(screen)
