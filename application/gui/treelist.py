@@ -1,4 +1,5 @@
 import logging
+import sys
 from time import sleep
 from gui.events import CustomClickEvent
 from gui.genre_slider import GenreSliders
@@ -23,6 +24,7 @@ from textual.widgets import (
     TabbedContent,
     TabPane,
     Label,
+    Placeholder,
 )
 from textual.containers import Container, Vertical, Horizontal
 import sqlite3
@@ -37,6 +39,7 @@ from textual.message import Message
 from textual.widget import Widget
 from textual.containers import Grid
 from textual.binding import Binding
+from textual import events
 
 # data = [random.expovariate(1 / 3) for _ in range(1000)]
 # Configure logging for debugging
@@ -60,23 +63,188 @@ NAMES = [
 TEST_IMAGE = r"/mnt/c/temp/cover_d.jpg"
 
 
-class LogScreen(ModalScreen[bool]):
-    """Screen with a dialog to quit."""
+class LogController:
+    """Centralized log controller to manage log messages."""
 
-    def __init__(self, log_widget):
-        # Call the parent constructor
-        super().__init__()
+    def __init__(self) -> None:
+        self.messages = []
+        self.log_widget = None
+
+    def set_log_widget(self, log_widget: Widget) -> None:
+        """Set the active log widget to update."""
         self.log_widget = log_widget
+        self.refresh_log_widget()
+
+    def write(self, message: str) -> None:
+        """Add a message to the log and update the widget."""
+        self.messages.append(message)
+        if self.log_widget:
+            self.log_widget.write(message)
+
+    def refresh_log_widget(self) -> None:
+        """Refresh the current log widget with all messages."""
+        if self.log_widget:
+            self.log_widget.clear()
+            for message in self.messages:
+                self.log_widget.write(f"{message}\n")
+
+
+class DashboardScreen(Screen):
+
+    BINDINGS = [
+        ("d", "switch_mode('dashboard')", "Dashboard"),
+        ("s", "switch_mode('settings')", "Settings"),
+        ("h", "switch_mode('help')", "Help"),
+        ("q", "request_quit", "Quit the app"),
+        ("l", "show_log", "Show the log"),
+    ]
+
+    # MODES = {
+    #     "dashboard": DashboardScreen,
+    #     "settings": SettingsScreen,
+    #     "help": HelpScreen,
+    #     "logscreen": LogScreen,
+    # }
+
+    def __init__(self, log_controller: LogController) -> None:
+        super().__init__()
+        self.log_controller = log_controller
+
+    def action_show_log(self) -> None:
+        """Action to display the quit dialog."""
+        self.app.push_screen(LogScreen(self.log_controller))
+
+    def action_request_quit(self) -> None:
+        """Action to display the quit dialog."""
+
+        def check_quit(quit: bool | None) -> None:
+            """Called when QuitScreen is dismissed."""
+            if quit:
+                self.app.exit()
+
+        self.app.push_screen(QuitScreen(), check_quit)
+
+    def on_custom_click_event(self, event: CustomClickEvent) -> None:
+        # Handle the custom event
+
+        self.log_controller.write(
+            f"{event.description} - {event.genre} - {event.lower} - {event.upper}"
+        )
+        cursor = create_cursor()
+        tracks = get_tracks_between_by_genre(
+            cursor, event.genre, event.lower, event.upper
+        )
+
+        plt = self.query_one("#playlist_table")
+        plt.clear_table()
+        for track in tracks:
+            track_row = get_track_by_id(cursor, track)
+
+            plt.add_track(
+                track_row[0],
+                track_row[1],
+                track_row[2],
+                track_row[3],
+            )
+
+        self.log_controller.write(f"{len(tracks)}")
+        close_connection()
+
+    def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
+        yield from super().get_system_commands(screen)
+        yield SystemCommand("Bell", "Ring the bell", self.bell)
+
+    def on_album_selected(self, album_id: int):
+        """Handle album selection event."""
+        # Fetch the album cover path from the database (replace this with actual logic)
+        image_path = "/mnt/c/temp/cover.jpg"
+
+        old_widget = self.query_one("#image_widget")
+        logging.info(old_widget)
+
+        Image = RENDERING_METHODS["halfcell"]
+        new_image_widget = Image(image_path, id="image_widget")
+        yield new_image_widget
 
     def compose(self) -> ComposeResult:
-        self.log_widget = Log(id="logview")
-        yield self.log_widget
+        """Compose the UI with a horizontal layout."""
+        with Horizontal():
+            music_db = MusicDatabaseWidget(
+                database_path="database/paula.sqlite",
+                on_album_selected=self.show_album_tracks,
+                id="music_panel",
+                log_controller=self.log_controller,
+            )
+            yield music_db
+            with Vertical(id="tracklist"):
+                with Horizontal(id="media_controls"):
+                    yield Input(placeholder="Search Tracks ...", id="search_bar_tracks")
+                    yield Button("PLAY", classes="red", id="red_button")
+                track_table = TrackTableWidget(
+                    id="track_table", log_controller=self.log_controller
+                )
+                yield track_table
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "quit":
-            self.dismiss(True)
-        else:
-            self.dismiss(False)
+                playlist = PlaylistWidget(
+                    id="playlist_table", log_controller=self.log_controller
+                )
+                self.track_table = track_table  # Store reference for updates
+                yield playlist
+
+            with Vertical(id="metadata"):
+                Image = RENDERING_METHODS["halfcell"]
+                self.image_widget = Image(TEST_IMAGE, id="image_widget")
+                yield self.image_widget
+        yield Footer()
+
+    def show_album_tracks(self, album_id: int):
+        global TEST_IMAGE
+        """Show tracks for the selected album."""
+        self.track_table.populate_tracks(
+            album_id, database_path="database/paula.sqlite"
+        )
+        database_path = "database/paula.sqlite"
+        connection = sqlite3.connect(database_path)
+        cursor = connection.cursor()
+        cover_path = get_cover_by_album_id(cursor, album_id)
+        if cover_path:
+            image_widget = self.query_one("#image_widget")
+            image_widget.image = cover_path
+        connection.close()
+
+
+class SettingsScreen(Screen):
+    def compose(self) -> ComposeResult:
+        yield Placeholder("Settings Screen")
+        yield Footer()
+
+
+class HelpScreen(Screen):
+    def compose(self) -> ComposeResult:
+        yield Placeholder("Help Screen")
+        yield Footer()
+
+
+class LogScreen(Screen):
+    """Screen to display the log."""
+
+    BINDINGS = [
+        ("q", "do_close", "Close the logging"),
+    ]
+
+    def action_do_close(self) -> None:
+        self.app.pop_screen()
+        self.log_controller.set_log_widget(None)  # Detach the widget
+
+    def __init__(self, log_controller: LogController) -> None:
+        super().__init__()
+        self.log_controller = log_controller
+
+    def compose(self) -> ComposeResult:
+        log_widget = Log(classes="log-widget")
+        self.log_controller.set_log_widget(log_widget)  # Set the log widget
+        yield Container(log_widget)
+        yield Footer()
 
 
 class QuitScreen(ModalScreen[bool]):
@@ -101,13 +269,17 @@ class MusicDatabaseWidget(Container):
     """A widget to display the music database as a tree structure with a search bar."""
 
     def __init__(
-        self, database_path: str, on_album_selected=None, log_widget=None, **kwargs
+        self,
+        database_path: str,
+        on_album_selected=None,
+        log_controller: LogController = None,
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.database_path = database_path
         self.on_album_selected = on_album_selected  # Callback for album selection
         self.original_data = {}  # Store metadata for filtering
-        self.log_widget = log_widget
+        self.log_controller = log_controller
 
     def compose(self) -> ComposeResult:
         """Compose the widget with a search bar and a Tree."""
@@ -126,9 +298,9 @@ class MusicDatabaseWidget(Container):
         """Handle TabActivated message sent by Tabs."""
 
         if event.tab.id == "tree_artists_tab":
-            self.log_widget.write_line("Artist Tab")
+            self.log_controller.write("Artist Tab")
         elif event.tab.id == "tree_genres_tab":
-            self.log_widget.write_line("Genres Tab")
+            self.log_controller.write("Genres Tab")
 
     def on_mount(self) -> None:
         """Populate the tree and store the original data for filtering."""
@@ -171,7 +343,8 @@ class MusicDatabaseWidget(Container):
                 album_node = artist_node.add(album_label, allow_expand=False)
                 album_node.album_id = album_id  # Store album_id in the node
                 # log = self.query_one("#logview")
-                self.log_widget.write_line(
+
+                self.log_controller.write(
                     f"Album Node Added: {album_label} (ID: {album_id})"
                 )
 
@@ -228,7 +401,7 @@ class MusicDatabaseWidget(Container):
                         if node and "album_id" in data:
                             node.album_id = data["album_id"]
 
-                            self.log_widget.write_line(
+                            self.log_controller.write(
                                 f"Filtered Album Node Added: {data['label']}"
                             )
                 else:
@@ -239,7 +412,8 @@ class MusicDatabaseWidget(Container):
 
                     if "album_id" in data:
                         node.album_id = data["album_id"]
-                        self.log_widget.write_line(
+
+                        self.log_controller.write(
                             f"Filtered Album Node Added: {data['label']}"
                         )
 
@@ -248,23 +422,25 @@ class MusicDatabaseWidget(Container):
         node = event.node
         logging.debug(f"Node Selected: {node.label}")
         if hasattr(node, "album_id") and self.on_album_selected:
-            self.log_widget.write_line(f"Album Selected: {node.album_id}")
+
+            self.log_controller.write(f"Album Selected: {node.album_id}")
             self.on_album_selected(node.album_id)
 
 
 class TrackTableWidget(DataTable):
     """A widget to display tracks of a selected album."""
 
-    def __init__(self, log_widget=None, **kwargs):
+    def __init__(self, log_controller: LogController, **kwargs):
         super().__init__(**kwargs)
         self.add_column("Track Number", width=10)
         self.add_column("Title", width=40)
-        self.log_widget = log_widget
+        self.log_controller = log_controller
 
     def populate_tracks(self, album_id: int, database_path: str):
         """Populate the table with tracks for the given album."""
         self.clear()  # Clear existing tracks
-        self.log_widget.write_line(f"Populating tracks for album ID: {album_id}")
+
+        self.log_controller.write(f"Populating tracks for album ID: {album_id}")
         connection = sqlite3.connect(database_path)
         cursor = connection.cursor()
 
@@ -282,13 +458,13 @@ class TrackTableWidget(DataTable):
 class PlaylistWidget(DataTable):
     """A widget to display the playlist."""
 
-    def __init__(self, log_widget=None, **kwargs):
+    def __init__(self, log_controller: LogController, **kwargs):
         super().__init__(**kwargs)
         self.add_column("ID", width=5)
         self.add_column("Title", width=30)
         self.add_column("Artist", width=30)
         self.add_column("Album", width=30)
-        self.log_widget = log_widget
+        self.log_controller = log_controller
 
     def clear_table(self):
         self.clear()
@@ -301,122 +477,13 @@ class PlaylistWidget(DataTable):
 class MusicDatabaseApp(App):
     """Textual App to display the MusicDatabaseWidget."""
 
-    COMMAND_PALETTE_BINDING = "ctrl+backslash"
     CSS_PATH = "treelist.tcss"
-    BINDINGS = [
-        Binding(key="q", action="request_quit", description="Quit the app"),
-        Binding(key="l", action="show_log", description="Show the logs"),
-        Binding(
-            key="question_mark",
-            action="help",
-            description="Show help screen",
-            key_display="?",
-        ),
-    ]
 
-    def action_show_log(self) -> None:
-        """Action to display the quit dialog."""
-        self.push_screen(LogScreen(self.log_widget))
+    def on_mount(self) -> None:
+        self.log_controller = LogController()
 
-    def action_request_quit(self) -> None:
-        """Action to display the quit dialog."""
-
-        def check_quit(quit: bool | None) -> None:
-            """Called when QuitScreen is dismissed."""
-            if quit:
-                self.exit()
-
-        self.push_screen(QuitScreen(), check_quit)
-
-    def on_custom_click_event(self, event: CustomClickEvent) -> None:
-        # Handle the custom event
-        self.log_widget.write_line(
-            f"{event.description} - {event.genre} - {event.lower} - {event.upper}"
-        )
-        cursor = create_cursor()
-        tracks = get_tracks_between_by_genre(
-            cursor, event.genre, event.lower, event.upper
-        )
-
-        plt = self.query_one("#playlist_table")
-        plt.clear_table()
-        for track in tracks:
-            track_row = get_track_by_id(cursor, track)
-
-            plt.add_track(
-                track_row[0],
-                track_row[1],
-                track_row[2],
-                track_row[3],
-            )
-
-        self.log_widget.write_line(f"{len(tracks)}")
-        close_connection()
-
-    def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
-        yield from super().get_system_commands(screen)
-        yield SystemCommand("Bell", "Ring the bell", self.bell)
-
-    def on_album_selected(self, album_id: int):
-        """Handle album selection event."""
-        # Fetch the album cover path from the database (replace this with actual logic)
-        image_path = "/mnt/c/temp/cover.jpg"
-
-        old_widget = self.query_one("#image_widget")
-        logging.info(old_widget)
-
-        Image = RENDERING_METHODS["halfcell"]
-        new_image_widget = Image(image_path, id="image_widget")
-        yield new_image_widget
-
-    def compose(self) -> ComposeResult:
-        """Compose the UI with a horizontal layout."""
-        self.log_widget = Log(id="logview")
-        with Horizontal():
-            music_db = MusicDatabaseWidget(
-                database_path="database/paula.sqlite",
-                on_album_selected=self.show_album_tracks,
-                id="music_panel",
-                log_widget=self.log_widget,
-            )
-            yield music_db
-            with Vertical(id="tracklist"):
-                with Horizontal(id="media_controls"):
-                    yield Input(placeholder="Search Tracks ...", id="search_bar_tracks")
-                    yield Button("PLAY", classes="red", id="red_button")
-                track_table = TrackTableWidget(
-                    id="track_table", log_widget=self.log_widget
-                )
-                yield track_table
-
-                playlist = PlaylistWidget(
-                    id="playlist_table",
-                    log_widget=self.log_widget,
-                )
-                self.track_table = track_table  # Store reference for updates
-                yield playlist
-
-                yield self.log_widget
-            with Vertical(id="metadata"):
-                Image = RENDERING_METHODS["halfcell"]
-                self.image_widget = Image(TEST_IMAGE, id="image_widget")
-                yield self.image_widget
-        yield Footer()
-
-    def show_album_tracks(self, album_id: int):
-        global TEST_IMAGE
-        """Show tracks for the selected album."""
-        self.track_table.populate_tracks(
-            album_id, database_path="database/paula.sqlite"
-        )
-        database_path = "database/paula.sqlite"
-        connection = sqlite3.connect(database_path)
-        cursor = connection.cursor()
-        cover_path = get_cover_by_album_id(cursor, album_id)
-        if cover_path:
-            image_widget = self.query_one("#image_widget")
-            image_widget.image = cover_path
-        connection.close()
+        # Start with the Main Screen
+        self.push_screen(DashboardScreen(self.log_controller))
 
 
 if __name__ == "__main__":

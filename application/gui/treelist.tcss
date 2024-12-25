@@ -67,3 +67,14 @@
 Button {
     width: 100%;
 }
+
+    .background-screen {
+        background: rgba(0, 0, 255, 0.3); /* Light blue translucent */
+        width: 100%;
+        height: 100%;
+    }
+
+        Screen {
+        background: #202020; /* Dark background for debugging */
+        color: white;        /* White text */
+    }
