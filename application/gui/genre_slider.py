@@ -50,6 +50,9 @@ class GenreSliders(Widget):
 
     """
 
+    def on_show(self) -> None:
+        self.send_event()
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.genre_values = {
@@ -78,8 +81,8 @@ class GenreSliders(Widget):
                 self,
                 "Genre selected",
                 genre,
-                value,
-                (value * 100 + 1) / 100,
+                max((value * 100 - 3) / 100, 0.0),
+                min((value * 100 + 3) / 100, 1.0),
             )
         )
 
@@ -112,8 +115,9 @@ class GenreSliders(Widget):
         self.genre_values[genre] = value
 
         self.selected_value = value
-
-        label.update(f"{event.value/100}\n-\n{(event.value+1)/100}")
+        min_value = max((value * 100 - 3) / 100, 0.0)
+        max_value = min((value * 100 + 3) / 100, 1.0)
+        label.update(f"{min_value}\n-\n{max_value}")
         event.slider.styles.background = Color(value * 255, value * 255, value * 255)
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:

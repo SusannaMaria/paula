@@ -2,7 +2,13 @@ import logging
 from time import sleep
 from gui.events import CustomClickEvent
 from gui.genre_slider import GenreSliders
-from database.database_helper import get_cover_by_album_id
+from database.database_helper import (
+    close_connection,
+    create_cursor,
+    get_cover_by_album_id,
+    get_track_by_id,
+    get_tracks_between_by_genre,
+)
 from textual.app import App, ComposeResult
 from textual.widgets import (
     Tree,
@@ -28,6 +34,7 @@ from textual.screen import Screen
 from textual.message import Message
 from textual.widget import Widget
 
+# data = [random.expovariate(1 / 3) for _ in range(1000)]
 # Configure logging for debugging
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -236,10 +243,14 @@ class PlaylistWidget(DataTable):
 
     def __init__(self, log_widget=None, **kwargs):
         super().__init__(**kwargs)
+        self.add_column("ID", width=5)
         self.add_column("Title", width=30)
         self.add_column("Artist", width=30)
         self.add_column("Album", width=30)
         self.log_widget = log_widget
+
+    def clear_table(self):
+        self.clear()
 
     def add_track(self, track_id: int, title: str, artist: str, album: str):
         """Add a track to the playlist."""
@@ -305,6 +316,25 @@ class MusicDatabaseApp(App):
         self.log_widget.write_line(
             f"{event.description} - {event.genre} - {event.lower} - {event.upper}"
         )
+        cursor = create_cursor()
+        tracks = get_tracks_between_by_genre(
+            cursor, event.genre, event.lower, event.upper
+        )
+
+        plt = self.query_one("#playlist_table")
+        plt.clear_table()
+        for track in tracks:
+            track_row = get_track_by_id(cursor, track)
+
+            plt.add_track(
+                track_row[0],
+                track_row[1],
+                track_row[2],
+                track_row[3],
+            )
+
+        self.log_widget.write_line(f"{len(tracks)}")
+        close_connection()
 
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
         yield from super().get_system_commands(screen)
