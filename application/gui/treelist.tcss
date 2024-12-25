@@ -6,14 +6,17 @@
         height: 30%
     }
     #playlist_table {
-        height: 20%;
+        height: 50%;
     }
     #tracklist {
         width: 60%;
     }
     #metadata {
         width: 15%;
-    }    
+    }
+    #feature-distribution {
+        width: 100%;
+    }   
     #media_controls {
     height: 7%;
     margin: 0;
