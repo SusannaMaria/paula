@@ -1,0 +1,122 @@
+{
+    "database": {
+        "path": "database/paula.sqlite",
+        "dbname": "paula"
+    },
+    "application": {
+        "log_level": "INFO",
+        "batch_size": 100
+    },
+    "musicbrainz": {
+        "headers": {
+            "User-Agent": "Moose/1.0 (susanna@olsoni.de)"
+        },
+        "rate_limit": 1
+    },
+    "annoy_index": {
+        "path": "similarity/tracks.ann",
+        "num_trees": 145,
+        "feature_dim": 29
+    },
+    "temp_dir": "/mnt/c/Users/susan/AppData/Local/Temp",
+    "player": "foobar2000",
+    "extractor": {
+        "threads": 6
+    },
+    "local_translate_audio_path": {
+        "source": "/mnt/c",
+        "target": "/mnt/d",
+        "fields": [
+            "tracks.path_unused"
+        ]
+    },
+    "features": {
+        "danceability": {
+            "weight": 1.0656097829367392
+        },
+        "bpm": {
+            "weight": 0.8991003536206305
+        },
+        "average_loudness": {
+            "weight": 0.9123196142355351
+        },
+        "mood_happy": {
+            "weight": 1.1592677451404731
+        },
+        "mood_party": {
+            "weight": 1.0041526255785196
+        },
+        "genre_rock": {
+            "weight": 0.996670635188722
+        },
+        "genre_pop": {
+            "weight": 0.9941882962266668
+        },
+        "genre_raphiphop": {
+            "weight": 0.9996669876032159
+        },
+        "genre_jazz": {
+            "weight": 0.9946120409500047
+        },
+        "genre_electronic": {
+            "weight": 1.0805186076544313
+        },
+        "dynamic_complexity": {
+            "weight": 1.0132728420580608
+        },
+        "voice_instrumental": {
+            "weight": 0.7119338944038304
+        },
+        "female": {
+            "weight": 1.0924543415924592
+        },
+        "genre_alternative": {
+            "weight": 0.9351451350149327
+        },
+        "mood_relaxed": {
+            "weight": 0.9502717918124792
+        },
+        "mood_sad": {
+            "weight": 0.9221423793362923
+        },
+        "mood_mirex_cluster1": {
+            "weight": 1.0
+        },
+        "mood_mirex_cluster2": {
+            "weight": 1.0
+        },
+        "mood_mirex_cluster3": {
+            "weight": 1.0
+        },
+        "mood_mirex_cluster4": {
+            "weight": 1.0
+        },
+        "mood_mirex_cluster5": {
+            "weight": 1.0
+        },
+        "timbre": {
+            "weight": 1.0
+        },
+        "tonal_atonal": {
+            "weight": 1.0
+        },
+        "genre_blues": {
+            "weight": 1.0
+        },
+        "genre_electronic_ambient": {
+            "weight": 1.0
+        },
+        "genre_electronic_dnb": {
+            "weight": 1.0
+        },
+        "genre_electronic_house": {
+            "weight": 1.0
+        },
+        "genre_electronic_techno": {
+            "weight": 1.0
+        },
+        "genre_electronic_trance": {
+            "weight": 1.0
+        }
+    }
+}

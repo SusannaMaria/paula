@@ -1,0 +1,29 @@
+{
+    "configurations": [
+    
+        {
+            "name": "Python Debugger Paula",
+            "type": "python",
+            "python": "/home/susanna/miniconda3/envs/paula/bin/python",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["gui"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/application",
+            "env": {
+                "PATH": "${env:CONDA_PREFIX}/bin:${env:PATH}"
+              },
+        },
+        {
+            "name": "Python: Debug with Env",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}", // Path to your script
+            "python": "/home/susanna/miniconda3/envs/paula/bin/python",
+            "cwd": "${workspaceFolder}", // Optional: Working directory
+            "env": {
+                "PATH": "${env:CONDA_PREFIX}/bin:${env:PATH}"
+              },
+          }
+    ]
+}

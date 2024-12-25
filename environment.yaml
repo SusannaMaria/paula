@@ -1,0 +1,25 @@
+name: paula
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - psycopg2
+  - requests
+  - mutagen
+  - pillow
+  - scipy
+  - ffmpeg
+  - flake8
+  - ruff
+  - pip:
+      - docker
+      - colorama
+      - annoy
+      - pydub
+      - pyvis
+      - plotly
+      - rich
+      - textual-image[textual]
+      - textual-dev
+      - pygame
+      - windows-curses

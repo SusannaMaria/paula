@@ -1,0 +1,1 @@
+docker run -v /tmp/test.flac:/tmp/test.flac --rm ghcr.io/mgoltzsche/essentia essentia_streaming_extractor_music /tmp/test.flac - /etc/essentia/profile.yaml > test.json

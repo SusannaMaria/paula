@@ -49,7 +49,6 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
-cover/
 
 # Translations
 *.mo
@@ -160,3 +159,14 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+application/import_progress.csv
+application/logs/application.log*
+application/update_progress.csv
+application/backups/*.sql
+application/mosaic.jpg
+application/artists/**/*
+application/database/paula.sqlite
+application/database/paula.sqlite-journal
+application/backups/paula_backup_*.sqlite
+application/similarity/tracks.ann
+application/similarity/track_similarity_graph.html
