@@ -1,9 +1,10 @@
 import random
 from statistics import mean
 from textual.containers import Container, Vertical, Horizontal
-from textual.app import App, ComposeResult
-from textual.widgets import Sparkline, Static
-
+from textual.app import App, ComposeResult, RenderResult
+from textual.widgets import Sparkline, Static, Label, Sparkline, OptionList
+from textual.widget import Widget
+from textual.widgets.option_list import Option
 import sqlite3
 
 features = [
@@ -99,12 +100,10 @@ class SparklineSummaryFunctionApp(App[None]):
     CSS_PATH = "features_gui.tcss"
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="feature-dsitribution", classes="scrollable-container"):
-            for feature in features:
-                data = distribution_of_feature(feature)
-                yield Static(feature)
-                yield Sparkline(data, summary_function=mean)
-
+        for feature in features:
+            data = distribution_of_feature(feature)
+            yield Label(feature)
+            yield Sparkline(data=data, summary_function=max)
         connection.close()
 
 

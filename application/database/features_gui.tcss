@@ -6,3 +6,7 @@ Vertical.scrollable-container {
     height: 100%;          /* Fixed height for the container */
     overflow: scroll;    /* Enable scrolling */
 }
+OptionList {
+    width: 70%;
+    height: 80%;
+}

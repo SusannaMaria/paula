@@ -121,7 +121,6 @@ for feature in features:
                 feature_max, str
             ):
                 mean = (feature_min * feature_max) / 2
-                print(mean)
                 filtered_features.append(feature)
                 feature_min_max[feature] = (feature_min, feature_max)
 
@@ -150,6 +149,8 @@ for feature in filtered_features:
         """
         cursor.execute(query, (original_lower, original_upper))
         count = cursor.fetchone()[0]
+
+        results.append(count)
 
         # Insert the distribution into the table
         cursor.execute(
