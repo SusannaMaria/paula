@@ -9,6 +9,7 @@ from database.database_helper import (
     get_track_by_id,
     get_tracks_between_by_genre,
 )
+from textual.widgets import Footer
 from textual.app import App, ComposeResult
 from textual.widgets import (
     Tree,
@@ -21,6 +22,7 @@ from textual.widgets import (
     Tab,
     TabbedContent,
     TabPane,
+    Label,
 )
 from textual.containers import Container, Vertical, Horizontal
 import sqlite3
@@ -30,9 +32,11 @@ from textual_image.widget import Image as AutoImage
 from typing import Iterable
 
 from textual.app import App, SystemCommand
-from textual.screen import Screen
+from textual.screen import Screen, ModalScreen
 from textual.message import Message
 from textual.widget import Widget
+from textual.containers import Grid
+from textual.binding import Binding
 
 # data = [random.expovariate(1 / 3) for _ in range(1000)]
 # Configure logging for debugging
@@ -54,6 +58,43 @@ NAMES = [
 ]
 
 TEST_IMAGE = r"/mnt/c/temp/cover_d.jpg"
+
+
+class LogScreen(ModalScreen[bool]):
+    """Screen with a dialog to quit."""
+
+    def __init__(self, log_widget):
+        # Call the parent constructor
+        super().__init__()
+        self.log_widget = log_widget
+
+    def compose(self) -> ComposeResult:
+        self.log_widget = Log(id="logview")
+        yield self.log_widget
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "quit":
+            self.dismiss(True)
+        else:
+            self.dismiss(False)
+
+
+class QuitScreen(ModalScreen[bool]):
+    """Screen with a dialog to quit."""
+
+    def compose(self) -> ComposeResult:
+        yield Grid(
+            Label("Are you sure you want to quit?", id="question"),
+            Button("Quit", variant="error", id="quit"),
+            Button("Cancel", variant="primary", id="cancel"),
+            id="dialog",
+        )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "quit":
+            self.dismiss(True)
+        else:
+            self.dismiss(False)
 
 
 class MusicDatabaseWidget(Container):
@@ -261,55 +302,31 @@ class MusicDatabaseApp(App):
     """Textual App to display the MusicDatabaseWidget."""
 
     COMMAND_PALETTE_BINDING = "ctrl+backslash"
-    CSS = """
-    #track_table {
-        height: 50%;
-    }
-    #image_widget {
-        width: 100%;
-        height: 30%
-    }
-    #playlist_table {
-        height: 20%;
-    }
-    #tracklist {
-        width: 60%;
-    }
-    #metadata {
-        width: 15%;
-    }    
-    #media_controls {
-    height: 7%;
-    margin: 0;
-    } 
-    #search_bar_tracks {
-    width: 40%;
-    }
-    /* Style for all control buttons */
-    .control-button {
-        background: black;
-        color: white;
-        border: solid gray;
-        width: 5; /* Fixed width for uniform size */
-        height: 3; /* Fixed height */
-        margin: 1; /* Spacing between buttons */
-        text-align: center;
-        padding: 0;
-    }
-    Button.red {
-        background: red;
-        color: white;
-        width: 4;
-            }
-    /* Hover effect */
-    .control-button:hover {
-        background: darkgray;
-        color: black;
-    }    
-     Tabs {
-        dock: top;
-    }
-    """
+    CSS_PATH = "treelist.tcss"
+    BINDINGS = [
+        Binding(key="q", action="request_quit", description="Quit the app"),
+        Binding(key="l", action="show_log", description="Show the logs"),
+        Binding(
+            key="question_mark",
+            action="help",
+            description="Show help screen",
+            key_display="?",
+        ),
+    ]
+
+    def action_show_log(self) -> None:
+        """Action to display the quit dialog."""
+        self.push_screen(LogScreen(self.log_widget))
+
+    def action_request_quit(self) -> None:
+        """Action to display the quit dialog."""
+
+        def check_quit(quit: bool | None) -> None:
+            """Called when QuitScreen is dismissed."""
+            if quit:
+                self.exit()
+
+        self.push_screen(QuitScreen(), check_quit)
 
     def on_custom_click_event(self, event: CustomClickEvent) -> None:
         # Handle the custom event
@@ -384,6 +401,7 @@ class MusicDatabaseApp(App):
                 Image = RENDERING_METHODS["halfcell"]
                 self.image_widget = Image(TEST_IMAGE, id="image_widget")
                 yield self.image_widget
+        yield Footer()
 
     def show_album_tracks(self, album_id: int):
         global TEST_IMAGE
