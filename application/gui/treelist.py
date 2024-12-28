@@ -40,6 +40,7 @@ from textual.widget import Widget
 from textual.containers import Grid
 from textual.binding import Binding
 from textual import events
+from textual.css.scalar import Scalar
 
 # data = [random.expovariate(1 / 3) for _ in range(1000)]
 # Configure logging for debugging
@@ -109,6 +110,21 @@ class DashboardScreen(Screen):
     def __init__(self, log_controller: LogController) -> None:
         super().__init__()
         self.log_controller = log_controller
+        self.image_container = Container()
+        self.image_container.visible = False
+        self.update_image(TEST_IMAGE)
+
+    def update_image(self, image_path):
+        self.image_container.visible = True
+        # Remove the old image widget (if any) and add a new one
+        for widget in self.image_container.walk_children():
+            widget.remove()
+        Image = RENDERING_METHODS["auto"]
+        image_widget = Image(image_path)
+        image_widget.styles.width = Scalar.parse("25")
+        image_widget.styles.height = Scalar.parse("14")
+        if self.image_container.is_mounted:
+            self.image_container.mount(image_widget)
 
     def action_show_log(self) -> None:
         """Action to display the quit dialog."""
@@ -168,6 +184,7 @@ class DashboardScreen(Screen):
 
     def compose(self) -> ComposeResult:
         """Compose the UI with a horizontal layout."""
+
         with Horizontal():
             music_db = MusicDatabaseWidget(
                 database_path="database/paula.sqlite",
@@ -192,9 +209,7 @@ class DashboardScreen(Screen):
                 yield playlist
 
             with Vertical(id="metadata"):
-                Image = RENDERING_METHODS["halfcell"]
-                self.image_widget = Image(TEST_IMAGE, id="image_widget")
-                yield self.image_widget
+                yield Container(self.image_container)
         yield Footer()
 
     def show_album_tracks(self, album_id: int):
@@ -208,8 +223,7 @@ class DashboardScreen(Screen):
         cursor = connection.cursor()
         cover_path = get_cover_by_album_id(cursor, album_id)
         if cover_path:
-            image_widget = self.query_one("#image_widget")
-            image_widget.image = cover_path
+            self.update_image(cover_path)
         connection.close()
 
 
