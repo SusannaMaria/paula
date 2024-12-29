@@ -1,11 +1,18 @@
+import asyncio
+import math
+import threading
+import time
+from typing import List
 from textual.app import App, ComposeResult
 from textual.containers import Vertical, Horizontal
-from textual.widgets import Button, Static, ProgressBar
+from textual.widgets import Button, Static, ProgressBar, Sparkline
 import pygame
 from textual.timer import Timer
 import mutagen
 from textual_slider import Slider
 from textual import on
+from pydub import AudioSegment
+from statistics import mean
 
 
 class PlayerProgressBar(Horizontal):
@@ -20,12 +27,57 @@ class PlayerProgressBar(Horizontal):
         self.song_length = 0  # Length of the song in seconds
         self.timer: Timer | None = None
         self.elapsed_time = 0
+        self.task_running = False
+        self.visu = False
+        self.pause_event = asyncio.Event()
+        self.visu_sparkline = Sparkline(id="visu-sparkline", summary_function=max)
+        self.task_thread = threading.Thread(target=self.parallel_task, daemon=True)
         pygame.mixer.init()
         self.time_display = Static("0:00 / 0:00", id="time-display")
         self.slider_progress = Slider(min=0, max=100, value=0, id="slider-progress")
         if self.is_mounted:
             self.mount(self.slider_progress)
             self.mount(self.time_display)  # Add the Static widget as a child
+            self.mount(self.visu_sparkline)
+        self.task_ref = None
+
+    async def parallel_task(self):
+        """The background task."""
+        audio = AudioSegment.from_file(self.audio_file)
+        data = audio.get_array_of_samples()[0::2]
+        frame_rate = audio.frame_rate
+        max_amp = audio.max_possible_amplitude
+        width = 60
+        fps = 30
+        height = 32
+        sync = True
+        length, point_interval, last_frame_length, interval, divisor = (
+            calc_data_for_visualization(data, frame_rate, max_amp, width, fps, height)
+        )
+        skipped_frames = 0
+        audio_start = time.time()
+
+        for i, f in enumerate(
+            graph_frames_from_audio(data, point_interval, width, divisor)
+        ):
+            if not self.task_running:
+                break
+            await self.pause_event.wait()
+            self.visu_sparkline.data = f
+            # print_frame(f, height, print_char)
+            frame_length = (
+                last_frame_length if i == length - 1 else 1
+            )  # 1 denotes full frame
+            end_time = audio_start + (
+                (i + 1 * frame_length) * interval
+            )  # time at which we should print next frame
+            sleep_for = end_time - time.time()
+            if sync and sleep_for > 0:
+
+                await asyncio.sleep(sleep_for)
+                # time.sleep(sleep_for)  # sleep till next frame
+            else:
+                skipped_frames += 1
 
     def update_time(self, current_seconds, total_seconds):
         """Update the time display."""
@@ -34,6 +86,7 @@ class PlayerProgressBar(Horizontal):
         self.time_display.update(f" {current_time} / {total_time}")
         self.mount(self.slider_progress)
         self.mount(self.time_display)
+        self.mount(self.visu_sparkline)
 
     def render(self):
         """Render the progress bar with time information."""
@@ -58,20 +111,26 @@ class PlayerProgressBar(Horizontal):
             pb_p.label = "pause"
             pb_s.disabled = False
             self.is_paused = False
+            self.task_running = True
+            self.visu = True
+            self.task_ref = asyncio.create_task(self.parallel_task())  # Start the task
 
         elif "pause" in pb_p.label:
             pygame.mixer.music.pause()
             self.is_paused = True
             pb_p.label = "resume"
+            self.pause_event.clear()
         elif "resume" in pb_p.label:
             pygame.mixer.music.unpause()
             self.is_paused = False
             pb_p.label = "pause"
+            self.pause_event.set()
 
-    def stop_audio(self):
+    async def stop_audio(self):
         # if pygame.mixer.music.get_busy() or self.is_paused:
         # Stop playback
         pygame.mixer.music.stop()
+        self.pause_event.set()
         self.is_paused = False
         self.stop_progress_timer()
         self.reset_progress_bar()
@@ -83,6 +142,9 @@ class PlayerProgressBar(Horizontal):
         pb = self.app.query_one("#button-stop")
         pb.disabled = True
         self.slider_progress.value = 0
+        self.task_running = False
+        if self.task_ref:
+            await self.task_ref
 
     def get_song_length(self):
         """Get the song length in seconds."""
@@ -152,6 +214,63 @@ class PlayerProgressBar(Horizontal):
                 new_pos_seconds = (percentage / 100) * self.song_length
                 self.elapsed_time = new_pos_seconds
                 pygame.mixer.music.set_pos(new_pos_seconds)
+
+
+def graph_frames_from_audio(data, step, width, divisor):
+    """
+    Interpolates values in data list by taking an average of step values.
+    After processing width * step values will yield a list of width
+    interpolated values.
+    Once the data array has been processed yields final list of the remaining
+    values if there are any.
+
+    :param data: array of numbers representing audio data
+    :param step: number of values to use for interpolation
+    :param width: width of frame, number of interpolated values
+    :param divisor: divide each value with this number
+    :return: generator yielding a current frame
+    """
+    point = 0
+    current_sum = 0
+    current_frame = []
+    for x in data:
+        current_sum += int((abs(x) // divisor))
+        point += 1
+        if point == step:
+            current_frame.append(math.ceil(current_sum / point))
+            point = 0
+            current_sum = 0
+        if len(current_frame) == width:
+            yield current_frame
+            current_frame = []
+    if current_frame:
+        yield current_frame
+    elif current_sum:
+        yield [current_sum / point]
+
+
+def calc_data_for_visualization(
+    data: List[float],
+    frame_rate: int,
+    max_amp: float,
+    width: int,
+    fps: int,
+    height: int,
+):
+    """
+    Calculates all the data we need to visualize audio stream
+    """
+    length = len(data)
+    point_interval = frame_rate // (width * fps)  # interval used for interpolation
+    if point_interval == 0:
+        return
+    frame_mod = length % (point_interval * width)
+    last_frame_length = (
+        frame_rate / (length % (point_interval * width)) if frame_mod != 0 else 1
+    )
+    interval = 1.0 / fps
+    divisor = max_amp / height
+    return length, point_interval, last_frame_length, interval, divisor
 
 
 class AudioPlayerApp(App):
