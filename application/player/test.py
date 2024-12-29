@@ -41,44 +41,48 @@ class PlayerProgressBar(Horizontal):
         super().render()
         return ""
 
-    def on_song_end(self):
-        """Handle the event when the song ends."""
-        self.stop_audio()
-        # self.query_one("#title").update("Song Ended.")
-        self.slider_progress.remove()
-        self.time_display.remove()
-
     def play_audio(self):
-        if self.is_paused:
-            # Resume playback if paused
-            pygame.mixer.music.unpause()
-            self.is_paused = False
-        elif not pygame.mixer.music.get_busy():
+
+        pb_p = self.app.query_one("#button-play")
+        pb_s = self.app.query_one("#button-stop")
+
+        if "play" in pb_p.label:
             # Start playback if not playing
+            pygame.mixer.music.set_endevent(self.MUSIC_END_EVENT)
             pygame.mixer.music.load(self.audio_file)
             pygame.mixer.music.play()
-            pygame.mixer.music.set_endevent(self.MUSIC_END_EVENT)
             self.song_length = self.get_song_length()
             self.start_progress_timer()
             self.mount(self.slider_progress)
             self.mount(self.time_display)
+            pb_p.label = "pause"
+            pb_s.disabled = False
+            self.is_paused = False
 
-    def pause_audio(self):
-        if pygame.mixer.music.get_busy() and not self.is_paused:
-            # Pause playback
+        elif "pause" in pb_p.label:
             pygame.mixer.music.pause()
             self.is_paused = True
-            # self.stop_progress_timer()
+            pb_p.label = "resume"
+        elif "resume" in pb_p.label:
+            pygame.mixer.music.unpause()
+            self.is_paused = False
+            pb_p.label = "pause"
 
     def stop_audio(self):
-        if pygame.mixer.music.get_busy() or self.is_paused:
-            # Stop playback
-            pygame.mixer.music.stop()
-            self.is_paused = False
-            self.stop_progress_timer()
-            self.reset_progress_bar()
-            self.slider_progress.remove()
-            self.time_display.remove()
+        # if pygame.mixer.music.get_busy() or self.is_paused:
+        # Stop playback
+        pygame.mixer.music.stop()
+        self.is_paused = False
+        self.stop_progress_timer()
+        self.reset_progress_bar()
+        self.slider_progress.remove()
+        self.time_display.remove()
+        pb = self.app.query_one("#button-play")
+        pb.disabled = False
+        pb.label = "play"
+        pb = self.app.query_one("#button-stop")
+        pb.disabled = True
+        self.slider_progress.value = 0
 
     def get_song_length(self):
         """Get the song length in seconds."""
@@ -116,6 +120,8 @@ class PlayerProgressBar(Horizontal):
             new_pos_seconds = (percentage / 100) * self.song_length
             self.elapsed_time = new_pos_seconds
             pygame.mixer.music.set_pos(new_pos_seconds)
+            if self.is_paused:
+                self.update_time(new_pos_seconds, self.song_length)
 
     def update_progress(self):
         """Update the progress bar based on the current playback position."""
@@ -128,7 +134,10 @@ class PlayerProgressBar(Horizontal):
             )
             self.slider_progress.value = progress_percentage
             self.update_time(self.elapsed_time, self.song_length)
-            if progress_percentage >= 100:
+
+        for event in pygame.event.get():
+            if event.type == self.MUSIC_END_EVENT:
+                self.stop_audio()
                 self.stop_progress_timer()
 
     def on_click(self, event):
@@ -167,9 +176,8 @@ class AudioPlayerApp(App):
     def compose(self) -> ComposeResult:
         yield Static("Audio Player", id="title")
         yield Vertical(
-            Button("Play", id="play"),
-            Button("Pause", id="pause"),
-            Button("Stop", id="stop"),
+            Button.success("play", id="button-play"),
+            Button.error("stop", id="button-stop"),
             id="controls",
         )
         yield PlayerProgressBar(id="progress", audio_file=self.audio_file)
@@ -178,15 +186,14 @@ class AudioPlayerApp(App):
         button_id = event.button.id
         progressbar = self.query_one("#progress")
 
-        if button_id == "play":
+        if button_id == "button-play":
             progressbar.play_audio()
-        elif button_id == "pause":
-            progressbar.pause_audio()
-        elif button_id == "stop":
+        elif button_id == "button-stop":
             progressbar.stop_audio()
 
 
 if __name__ == "__main__":
+    pygame.init()
     audio_file_path = (
         "/mnt/c/temp/test.flac"  # Replace with the path to your audio file
     )
