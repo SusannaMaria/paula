@@ -4,24 +4,14 @@ from textual.widgets import Button, Static, ProgressBar
 import pygame
 from textual.timer import Timer
 import mutagen
-
-
-class TimeProgressBar(ProgressBar):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.pos_percentage = -1
-
-    def on_click(self, event):
-        widget_region = self.region  # A Region object
-        x_position = widget_region.x  # X-coordinate of the widget
-        width = self.size.width
-        if event.x < (width - 7) - x_position:
-            self.pos_percentage = (event.x - x_position) * 100 / (width - 7)
-            self.advance(self.pos_percentage)
+from textual_slider import Slider
+from textual import on
 
 
 class PlayerProgressBar(Horizontal):
     """Custom ProgressBar to display time information."""
+
+    MUSIC_END_EVENT = pygame.USEREVENT + 1
 
     def __init__(self, audio_file, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -32,21 +22,17 @@ class PlayerProgressBar(Horizontal):
         self.elapsed_time = 0
         pygame.mixer.init()
         self.time_display = Static("0:00 / 0:00", id="time-display")
-        self.progressbar = TimeProgressBar(
-            total=100, show_eta=False, show_percentage=False
-        )
+        self.slider_progress = Slider(min=0, max=100, value=0, id="slider-progress")
         if self.is_mounted:
-            self.mount(self.progressbar)
+            self.mount(self.slider_progress)
             self.mount(self.time_display)  # Add the Static widget as a child
-        self.show_eta = False
-        self.show_percentage = False
 
     def update_time(self, current_seconds, total_seconds):
         """Update the time display."""
         current_time = f"{int(current_seconds // 60)}:{int(current_seconds % 60):02}"
         total_time = f"{int(total_seconds // 60)}:{int(total_seconds % 60):02}"
         self.time_display.update(f" {current_time} / {total_time}")
-        self.mount(self.progressbar)
+        self.mount(self.slider_progress)
         self.mount(self.time_display)
 
     def render(self):
@@ -55,36 +41,44 @@ class PlayerProgressBar(Horizontal):
         super().render()
         return ""
 
+    def on_song_end(self):
+        """Handle the event when the song ends."""
+        self.stop_audio()
+        # self.query_one("#title").update("Song Ended.")
+        self.slider_progress.remove()
+        self.time_display.remove()
+
     def play_audio(self):
         if self.is_paused:
             # Resume playback if paused
             pygame.mixer.music.unpause()
             self.is_paused = False
-            # self.query_one("#title").update("Resumed...")
         elif not pygame.mixer.music.get_busy():
             # Start playback if not playing
             pygame.mixer.music.load(self.audio_file)
             pygame.mixer.music.play()
+            pygame.mixer.music.set_endevent(self.MUSIC_END_EVENT)
             self.song_length = self.get_song_length()
             self.start_progress_timer()
-            # self.query_one("#title").update("Playing...")
+            self.mount(self.slider_progress)
+            self.mount(self.time_display)
 
     def pause_audio(self):
         if pygame.mixer.music.get_busy() and not self.is_paused:
             # Pause playback
             pygame.mixer.music.pause()
             self.is_paused = True
-            # self.query_one("#title").update("Paused...")
-            self.stop_progress_timer()
+            # self.stop_progress_timer()
 
     def stop_audio(self):
         if pygame.mixer.music.get_busy() or self.is_paused:
             # Stop playback
             pygame.mixer.music.stop()
             self.is_paused = False
-            # self.query_one("#title").update("Stopped...")
             self.stop_progress_timer()
             self.reset_progress_bar()
+            self.slider_progress.remove()
+            self.time_display.remove()
 
     def get_song_length(self):
         """Get the song length in seconds."""
@@ -99,11 +93,13 @@ class PlayerProgressBar(Horizontal):
         """Start the timer to update progress."""
         if self.timer:
             self.timer.stop()
-        self.timer = self.progressbar.set_interval(1, self.update_progress)
+            self.elapsed_time = 0
+        self.timer = self.slider_progress.set_interval(1, self.update_progress)
 
     def stop_progress_timer(self):
         """Stop the progress update timer."""
         if self.timer:
+            self.elapsed_time = 0
             self.timer.stop()
 
     def reset_progress_bar(self):
@@ -112,17 +108,25 @@ class PlayerProgressBar(Horizontal):
         self.elapsed_time = 0
         self.update_time(0, self.song_length)
 
+    @on(Slider.Changed, "#slider-progress")
+    def on_slider_changed_normal_amp(self, event: Slider.Changed) -> None:
+        if pygame.mixer.music.get_busy() or self.is_paused:
+            percentage = event.value
+
+            new_pos_seconds = (percentage / 100) * self.song_length
+            self.elapsed_time = new_pos_seconds
+            pygame.mixer.music.set_pos(new_pos_seconds)
+
     def update_progress(self):
         """Update the progress bar based on the current playback position."""
-        if pygame.mixer.music.get_busy():
+        if pygame.mixer.music.get_busy() and not self.is_paused:
             self.elapsed_time += 1
-            current_pos = (
-                pygame.mixer.music.get_pos() / 1000
-            )  # Current position in seconds
             progress_percentage = (
-                (current_pos / self.song_length) * 100 if self.song_length > 0 else 0
+                (self.elapsed_time / self.song_length) * 100
+                if self.song_length > 0
+                else 0
             )
-            self.progressbar.advance(progress_percentage)
+            self.slider_progress.value = progress_percentage
             self.update_time(self.elapsed_time, self.song_length)
             if progress_percentage >= 100:
                 self.stop_progress_timer()
@@ -139,10 +143,6 @@ class PlayerProgressBar(Horizontal):
                 new_pos_seconds = (percentage / 100) * self.song_length
                 self.elapsed_time = new_pos_seconds
                 pygame.mixer.music.set_pos(new_pos_seconds)
-                # self.query_one("#title").update(f"Seeked to {int(new_pos_seconds)} seconds")
-                self.progressbar.progress = percentage
-                self.update_progress()
-                self.update_time(new_pos_seconds, self.song_length)
 
 
 class AudioPlayerApp(App):
