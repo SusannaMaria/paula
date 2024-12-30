@@ -17,29 +17,9 @@
     #feature-distribution {
         width: 100%;
     }   
-    #media_controls {
-    height: 7%;
-    margin: 0;
-    } 
     #search_bar_tracks {
     width: 40%;
     }
-    /* Style for all control buttons */
-    .control-button {
-        background: black;
-        color: white;
-        border: solid gray;
-        width: 5; /* Fixed width for uniform size */
-        height: 3; /* Fixed height */
-        margin: 1; /* Spacing between buttons */
-        text-align: center;
-        padding: 0;
-    }
-    Button.red {
-        background: red;
-        color: white;
-        width: 4;
-            }
     /* Hover effect */
     .control-button:hover {
         background: darkgray;
@@ -66,9 +46,6 @@
     height: 1fr;
     width: 1fr;
     content-align: center middle;
-}
-Button {
-    width: 100%;
 }
 
     .background-screen {

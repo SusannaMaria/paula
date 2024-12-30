@@ -1,6 +1,8 @@
 import logging
 import sys
+import pygame
 from time import sleep
+from player.audio_play_widget import AudioPlayerWidget
 from gui.events import CustomClickEvent
 from gui.genre_slider import GenreSliders
 from database.database_helper import (
@@ -113,6 +115,7 @@ class DashboardScreen(Screen):
         self.image_container = Container()
         self.image_container.visible = False
         self.update_image(TEST_IMAGE)
+        self.audio_player = AudioPlayerWidget(id="audio-player")
 
     def update_image(self, image_path):
         self.image_container.visible = True
@@ -194,9 +197,7 @@ class DashboardScreen(Screen):
             )
             yield music_db
             with Vertical(id="tracklist"):
-                with Horizontal(id="media_controls"):
-                    yield Input(placeholder="Search Tracks ...", id="search_bar_tracks")
-                    yield Button("PLAY", classes="red", id="red_button")
+                yield self.audio_player
                 track_table = TrackTableWidget(
                     id="track_table", log_controller=self.log_controller
                 )
@@ -459,14 +460,20 @@ class TrackTableWidget(DataTable):
         cursor = connection.cursor()
 
         cursor.execute(
-            "SELECT track_number, title FROM tracks WHERE album_id = ? ORDER BY CAST(SUBSTR(track_number, 1, INSTR(track_number, '/') - 1) AS INTEGER);",
+            "SELECT track_number, title, path FROM tracks WHERE album_id = ? ORDER BY CAST(SUBSTR(track_number, 1, INSTR(track_number, '/') - 1) AS INTEGER);",
             (album_id,),
         )
         tracks = cursor.fetchall()
         connection.close()
 
-        for track_number, title in tracks:
+        playlist = []
+        for track_number, title, path in tracks:
             self.add_row(str(track_number), title.replace("[", r"\["))
+            playlist.append(path)
+
+        if len(playlist) > 0:
+            audio_player = self.app.query_one("#audio-player")
+            audio_player.add_playlist(playlist)
 
 
 class PlaylistWidget(DataTable):
@@ -497,8 +504,10 @@ class MusicDatabaseApp(App):
         self.log_controller = LogController()
 
         # Start with the Main Screen
+        pygame.init()
         self.push_screen(DashboardScreen(self.log_controller))
 
 
 if __name__ == "__main__":
+
     MusicDatabaseApp().run()
