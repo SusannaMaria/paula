@@ -29,7 +29,7 @@ class PlayerProgressBar(Horizontal):
         self.elapsed_time = 0
         self.task_running = False
         self.visu = False
-        # self.task_thread = threading.Thread(target=self.parallel_task, daemon=True)
+        self.task_thread = threading.Thread(target=self.parallel_task, daemon=True)
         pygame.mixer.init()
         self.visu_sparkline = Sparkline(id="visu-sparkline", summary_function=max)
         self.time_display = Static("0:00 / 0:00", id="time-display")
@@ -38,6 +38,7 @@ class PlayerProgressBar(Horizontal):
         self.task_ref = None
         self.vertical_container = Vertical()
         self.horizontal_container = Horizontal()
+        self.task_visu = None
 
     async def parallel_task(self):
         """The background task."""
@@ -60,7 +61,7 @@ class PlayerProgressBar(Horizontal):
         ):
             if not self.task_running:
                 break
-            await self.pause_event.wait()
+            # await self.pause_event.wait()
             self.visu_sparkline.data = f
             # print_frame(f, height, print_char)
             frame_length = (
@@ -113,16 +114,20 @@ class PlayerProgressBar(Horizontal):
             pb_s.disabled = False
             self.is_paused = False
             self.visu = True
+            self.task_visu = asyncio.create_task(self.parallel_task())
+            self.task_running = True
 
         elif "pause" in pb_p.label:
             pygame.mixer.music.pause()
             self.is_paused = True
             pb_p.label = "resume"
+            self.task_running = False
 
         elif "resume" in pb_p.label:
             pygame.mixer.music.unpause()
             self.is_paused = False
             pb_p.label = "pause"
+            self.task_running = True
 
     def remove_widgets(self):
         self.slider_progress.remove()
