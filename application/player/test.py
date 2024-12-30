@@ -29,17 +29,15 @@ class PlayerProgressBar(Horizontal):
         self.elapsed_time = 0
         self.task_running = False
         self.visu = False
-        self.pause_event = asyncio.Event()
-        self.visu_sparkline = Sparkline(id="visu-sparkline", summary_function=max)
-        self.task_thread = threading.Thread(target=self.parallel_task, daemon=True)
+        # self.task_thread = threading.Thread(target=self.parallel_task, daemon=True)
         pygame.mixer.init()
+        self.visu_sparkline = Sparkline(id="visu-sparkline", summary_function=max)
         self.time_display = Static("0:00 / 0:00", id="time-display")
         self.slider_progress = Slider(min=0, max=100, value=0, id="slider-progress")
-        if self.is_mounted:
-            self.mount(self.slider_progress)
-            self.mount(self.time_display)  # Add the Static widget as a child
-            self.mount(self.visu_sparkline)
+        self.update_components = True
         self.task_ref = None
+        self.vertical_container = Vertical()
+        self.horizontal_container = Horizontal()
 
     async def parallel_task(self):
         """The background task."""
@@ -84,13 +82,17 @@ class PlayerProgressBar(Horizontal):
         current_time = f"{int(current_seconds // 60)}:{int(current_seconds % 60):02}"
         total_time = f"{int(total_seconds // 60)}:{int(total_seconds % 60):02}"
         self.time_display.update(f" {current_time} / {total_time}")
-        self.mount(self.slider_progress)
-        self.mount(self.time_display)
-        self.mount(self.visu_sparkline)
+
+        if self.update_components:
+            self.mount(self.vertical_container)
+            self.vertical_container.mount(self.visu_sparkline)
+            self.vertical_container.mount(self.horizontal_container)
+            self.horizontal_container.mount(self.slider_progress)
+            self.horizontal_container.mount(self.time_display)
+            self.update_components = False
 
     def render(self):
         """Render the progress bar with time information."""
-        # progress_text = f"{self.current_time} / {self.total_time}"
         super().render()
         return ""
 
@@ -106,45 +108,47 @@ class PlayerProgressBar(Horizontal):
             pygame.mixer.music.play()
             self.song_length = self.get_song_length()
             self.start_progress_timer()
-            self.mount(self.slider_progress)
-            self.mount(self.time_display)
+            self.update_components = True
             pb_p.label = "pause"
             pb_s.disabled = False
             self.is_paused = False
-            self.task_running = True
             self.visu = True
-            self.task_ref = asyncio.create_task(self.parallel_task())  # Start the task
 
         elif "pause" in pb_p.label:
             pygame.mixer.music.pause()
             self.is_paused = True
             pb_p.label = "resume"
-            self.pause_event.clear()
+
         elif "resume" in pb_p.label:
             pygame.mixer.music.unpause()
             self.is_paused = False
             pb_p.label = "pause"
-            self.pause_event.set()
 
-    async def stop_audio(self):
-        # if pygame.mixer.music.get_busy() or self.is_paused:
-        # Stop playback
-        pygame.mixer.music.stop()
-        self.pause_event.set()
-        self.is_paused = False
-        self.stop_progress_timer()
-        self.reset_progress_bar()
+    def remove_widgets(self):
         self.slider_progress.remove()
         self.time_display.remove()
-        pb = self.app.query_one("#button-play")
-        pb.disabled = False
-        pb.label = "play"
-        pb = self.app.query_one("#button-stop")
-        pb.disabled = True
+        for widget in self.vertical_container.walk_children():
+            widget.remove()
+        self.vertical_container.remove()
+
+    def stop_audio(self):
+        pb_p = self.app.query_one("#button-play")
+        pb_s = self.app.query_one("#button-stop")
+
+        pygame.mixer.music.stop()
+        pygame.event.clear()
+
+        self.stop_progress_timer()
+        self.reset_progress_bar()
+
+        self.remove_widgets()
+        self.update_components = True
+
+        pb_p.disabled = False
+        pb_p.label = "play"
+        pb_s.disabled = True
+        self.is_paused = False
         self.slider_progress.value = 0
-        self.task_running = False
-        if self.task_ref:
-            await self.task_ref
 
     def get_song_length(self):
         """Get the song length in seconds."""
