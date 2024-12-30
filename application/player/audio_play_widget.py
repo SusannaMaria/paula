@@ -10,6 +10,7 @@ from textual.timer import Timer
 import mutagen
 from textual_slider import Slider
 from textual import on
+from textual.events import MouseDown, MouseUp
 
 
 class AudioPlayerWidget(Container):
@@ -68,6 +69,7 @@ class AudioPlayerWidget(Container):
         self.button_play.disabled = True
         self.playlist = []
         self.current_song = -1
+        self.block_update = False
 
     def add_playlist(self, playlist):
         self.playlist = []
@@ -194,12 +196,15 @@ class AudioPlayerWidget(Container):
     def on_slider_changed_normal_amp(self, event: Slider.Changed) -> None:
         if pygame.mixer.music.get_busy() or self.is_paused:
             percentage = event.value
-
             new_pos_seconds = (percentage / 100) * self.song_length
-            self.elapsed_time = new_pos_seconds
-            pygame.mixer.music.set_pos(new_pos_seconds)
-            if self.is_paused:
-                self.update_time(new_pos_seconds, self.song_length)
+
+            if abs(self.elapsed_time - new_pos_seconds) > 2:
+
+                self.elapsed_time = new_pos_seconds
+
+                pygame.mixer.music.set_pos(new_pos_seconds)
+                if self.is_paused:
+                    self.update_time(new_pos_seconds, self.song_length)
 
     def update_progress(self):
         """Update the progress bar based on the current playback position."""
@@ -211,6 +216,7 @@ class AudioPlayerWidget(Container):
                 else 0
             )
             self.slider_progress.value = progress_percentage
+
             self.update_time(self.elapsed_time, self.song_length)
 
         for event in pygame.event.get():
@@ -225,19 +231,6 @@ class AudioPlayerWidget(Container):
                     self.stop_audio(remove_progress=True)
                     self.stop_progress_timer()
 
-    def on_click(self, event):
-        if self.song_length > 0:
-            # Calculate the clicked position as a percentage
-            if (
-                self.progressbar.pos_percentage > 0
-                and self.progressbar.pos_percentage < 100
-            ):
-                percentage = self.progressbar.pos_percentage
-
-                new_pos_seconds = (percentage / 100) * self.song_length
-                self.elapsed_time = new_pos_seconds
-                pygame.mixer.music.set_pos(new_pos_seconds)
-
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
         if button_id == "button-play":
@@ -250,7 +243,7 @@ class AudioPlayerApp(App):
 
     def __init__(self):
         super().__init__()
-        self.apw = AudioPlayerWidget(id="progress")
+        self.apw = AudioPlayerWidget(id="progress", cursor=None)
 
     def add_song(self, audio_file):
         self.apw.add_audio_file(audio_file=audio_file)
@@ -262,9 +255,7 @@ class AudioPlayerApp(App):
 
 if __name__ == "__main__":
     pygame.init()
-    audio_file_path = (
-        "/mnt/c/temp/test.flac"  # Replace with the path to your audio file
-    )
+    audio_file_path = "c:/temp/test.flac"  # Replace with the path to your audio file
     app = AudioPlayerApp()
     app.add_song(audio_file_path)
     app.run()
