@@ -143,7 +143,7 @@ class AudioPlayerWidget(Container):
             widget.remove()
         self.horizontal_container_slider.remove()
 
-    def stop_audio(self):
+    def stop_audio(self, remove_progress=True):
         pb_p = self.button_play
         pb_s = self.button_stop
         pygame.mixer.music.stop()
@@ -151,8 +151,8 @@ class AudioPlayerWidget(Container):
 
         self.stop_progress_timer()
         self.reset_progress_bar()
-
-        self.remove_widgets()
+        if remove_progress:
+            self.remove_widgets()
         self.update_components = True
 
         pb_p.disabled = False
@@ -214,11 +214,15 @@ class AudioPlayerWidget(Container):
 
         for event in pygame.event.get():
             if event.type == self.MUSIC_END_EVENT:
-                self.stop_audio()
-                self.stop_progress_timer()
-                if len(self.playlist) > self.current_song + 1:
-                    self.current_song += 1
+                self.current_song += 1
+                if len(self.playlist) > self.current_song:
+                    self.stop_audio(remove_progress=False)
+                    self.stop_progress_timer()
+
                     self.play_audio()
+                else:
+                    self.stop_audio(remove_progress=True)
+                    self.stop_progress_timer()
 
     def on_click(self, event):
         if self.song_length > 0:
