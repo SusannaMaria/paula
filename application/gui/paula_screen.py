@@ -27,7 +27,7 @@ from typing import Iterable
 from textual.css.scalar import Scalar
 import sqlite3
 
-TEST_IMAGE = r"/mnt/c/temp/cover_d.jpg"
+TEST_IMAGE = r"c:/temp/cover_d.jpg"
 
 RENDERING_METHODS = {
     "auto": AutoImage,
@@ -102,8 +102,9 @@ class PaulaScreen(Screen):
 
     def __init__(self, log_controller: LogController) -> None:
         super().__init__()
+        self.cursor = create_cursor()
         self.log_controller = log_controller
-        self.audio_player = AudioPlayerWidget(id="audio-player")
+        self.audio_player = AudioPlayerWidget(cursor=self.cursor, id="audio-player")
 
     def update_image(self, image_path):
         image_widget = self.query_one("#cover-image")
@@ -128,15 +129,14 @@ class PaulaScreen(Screen):
         self.log_controller.write(
             f"{event.description} - {event.genre} - {event.lower} - {event.upper}"
         )
-        cursor = create_cursor()
         tracks = get_tracks_between_by_genre(
-            cursor, event.genre, event.lower, event.upper
+            self.cursor, event.genre, event.lower, event.upper
         )
 
         plt = self.query_one("#playlist_table")
         plt.clear_table()
         for track in tracks:
-            track_row = get_track_by_id(cursor, track)
+            track_row = get_track_by_id(self.cursor, track)
 
             plt.add_track(
                 track_row[0],
@@ -169,7 +169,7 @@ class PaulaScreen(Screen):
 
         with Horizontal():
             music_db = MusicDatabaseWidget(
-                database_path="database/paula.sqlite",
+                cursor=self.cursor,
                 on_album_selected=self.show_album_tracks,
                 id="music_panel",
                 log_controller=self.log_controller,
@@ -200,13 +200,7 @@ class PaulaScreen(Screen):
     def show_album_tracks(self, album_id: int):
         global TEST_IMAGE
         """Show tracks for the selected album."""
-        self.track_table.populate_tracks(
-            album_id, database_path="database/paula.sqlite"
-        )
-        database_path = "database/paula.sqlite"
-        connection = sqlite3.connect(database_path)
-        cursor = connection.cursor()
-        cover_path = get_cover_by_album_id(cursor, album_id)
+        self.track_table.populate_tracks(self.cursor, album_id)
+        cover_path = get_cover_by_album_id(self.cursor, album_id)
         if cover_path:
             self.update_image(cover_path)
-        connection.close()

@@ -1,3 +1,5 @@
+from database.database_helper import close_cursor, create_cursor, execute_query
+from updater.updater_main import get_audio_path_from_track_id
 from gui.log_controller import LogController
 from textual.widgets import DataTable
 
@@ -13,24 +15,23 @@ class TrackTableWidget(DataTable):
         self.add_column("Title", width=40)
         self.log_controller = log_controller
 
-    def populate_tracks(self, album_id: int, database_path: str):
+    def populate_tracks(self, cursor, album_id: int):
         """Populate the table with tracks for the given album."""
         self.clear()  # Clear existing tracks
 
         self.log_controller.write(f"Populating tracks for album ID: {album_id}")
-        connection = sqlite3.connect(database_path)
-        cursor = connection.cursor()
 
-        cursor.execute(
-            "SELECT track_number, title, path FROM tracks WHERE album_id = ? ORDER BY CAST(SUBSTR(track_number, 1, INSTR(track_number, '/') - 1) AS INTEGER);",
+        tracks = execute_query(
+            cursor,
+            "SELECT track_id, track_number, title FROM tracks WHERE album_id = ? ORDER BY CAST(SUBSTR(track_number, 1, INSTR(track_number, '/') - 1) AS INTEGER);",
             (album_id,),
+            fetch_one=False,
+            fetch_all=True,
         )
-        tracks = cursor.fetchall()
-        connection.close()
-
         playlist = []
-        for track_number, title, path in tracks:
+        for track_id, track_number, title in tracks:
             self.add_row(str(track_number), title.replace("[", r"\["))
+            path = get_audio_path_from_track_id(cursor, track_id)
             playlist.append(path)
 
         if len(playlist) > 0:

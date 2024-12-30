@@ -13,19 +13,6 @@ logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# RENDERING_METHODS = {
-#     "auto": AutoImage,
-#     "tgp": TGPImage,
-#     "sixel": SixelImage,
-#     "halfcell": HalfcellImage,
-#     "unicode": UnicodeImage,
-# }
-
-# NAMES = [
-#     "Artists",
-#     "Genres",
-# ]
-
 
 class MusicDatabaseApp(App):
     """Textual App to display the MusicDatabaseWidget."""

@@ -18,13 +18,13 @@ class MusicDatabaseWidget(Container):
 
     def __init__(
         self,
-        database_path: str,
+        cursor,
         on_album_selected=None,
         log_controller: LogController = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.database_path = database_path
+        self.cursor = cursor
         self.on_album_selected = on_album_selected  # Callback for album selection
         self.original_data = {}  # Store metadata for filtering
         self.log_controller = log_controller
@@ -59,13 +59,9 @@ class MusicDatabaseWidget(Container):
         """Populate the tree with database content and store metadata."""
         self.clear_tree(tree.root)  # Clear the tree before repopulating
 
-        # Connect to the SQLite database
-        connection = sqlite3.connect(self.database_path)
-        cursor = connection.cursor()
-
         # Retrieve artists and albums
-        cursor.execute("SELECT artist_id, name FROM artists")
-        artists = cursor.fetchall()
+        self.cursor.execute("SELECT artist_id, name FROM artists")
+        artists = self.cursor.fetchall()
 
         self.original_data = {}  # Reset metadata storage
 
@@ -80,10 +76,10 @@ class MusicDatabaseWidget(Container):
             }
             parent_name = artist_name.lower()
             # Fetch albums for the artist
-            cursor.execute(
+            self.cursor.execute(
                 "SELECT album_id, name FROM albums WHERE artist_id = ?", (artist_id,)
             )
-            albums = cursor.fetchall()
+            albums = self.cursor.fetchall()
             if not albums:
                 artist_node.allow_expand = False
             for album_id, album_title in albums:
@@ -103,8 +99,6 @@ class MusicDatabaseWidget(Container):
                     "parent": artist_id,
                 }
                 self.original_data[album_title.lower()] = node_data
-
-        connection.close()
 
     def clear_tree(self, node):
         """Clear all children of a tree node."""

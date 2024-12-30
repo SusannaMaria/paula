@@ -17,9 +17,10 @@ class AudioPlayerWidget(Container):
 
     MUSIC_END_EVENT = pygame.USEREVENT + 1
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, cursor, *args, **kwargs):
         super().__init__(*args, **kwargs)
         pygame.mixer.init()
+        self.cursor = cursor
         self.is_paused = False
         self.song_length = 0  # Length of the song in seconds
         self.timer: Timer | None = None

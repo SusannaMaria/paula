@@ -25,9 +25,10 @@
     },
     "local_translate_audio_path": {
         "source": "/mnt/c",
-        "target": "/mnt/d",
+        "target": "c:",
         "fields": [
-            "tracks.path_unused"
+            "tracks.path",
+            "albums.folder_path"
         ]
     },
     "features": {
