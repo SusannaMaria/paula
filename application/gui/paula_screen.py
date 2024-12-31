@@ -26,6 +26,7 @@ from textual_image.widget import Image as AutoImage
 from typing import Iterable
 from textual.css.scalar import Scalar
 import sqlite3
+from textual import on
 
 TEST_IMAGE = r"c:/temp/cover_d.jpg"
 
@@ -191,8 +192,11 @@ class PaulaScreen(Screen):
             with Vertical(id="metadata"):
                 Image = RENDERING_METHODS["auto"]
                 image_widget = Image(TEST_IMAGE, id="cover-image")
-                image_widget.styles.width = Scalar.parse("25")
+                image_widget.styles.width = Scalar.parse("26")
                 image_widget.styles.height = Scalar.parse("14")
+                image_widget.styles.align = ("right", "top")
+                image_widget.styles.padding = 0
+                image_widget.styles.margin = 0
                 # yield Container(self.image_container)
                 yield image_widget
         yield Footer()
@@ -204,3 +208,17 @@ class PaulaScreen(Screen):
         cover_path = get_cover_by_album_id(self.cursor, album_id)
         if cover_path:
             self.update_image(cover_path)
+
+    @on(AudioPlayerWidget.PositionChanged)
+    def on_audio_player_postion_changed(
+        self, message: AudioPlayerWidget.PositionChanged
+    ) -> None:
+        # Broadcast the message to all widgets
+        self.query_one(TrackTableWidget).on_position_changed(message.value)
+
+    @on(TrackTableWidget.PositionChanged)
+    def on_track_table_postion_changed(
+        self, message: TrackTableWidget.PositionChanged
+    ) -> None:
+        # Broadcast the message to all widgets
+        self.query_one(AudioPlayerWidget).on_position_changed(message.value)

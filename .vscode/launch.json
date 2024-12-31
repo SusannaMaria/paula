@@ -2,7 +2,7 @@
     "configurations": [
     
         {
-            "name": "Python Debugger Paula",
+            "name": "Python Debugger Paula (wsl2)",
             "type": "python",
             "python": "/home/susanna/miniconda3/envs/paula/bin/python",
             "request": "launch",
@@ -13,9 +13,24 @@
             "env": {
                 "PATH": "${env:CONDA_PREFIX}/bin:${env:PATH}"
               },
+             
         },
         {
-            "name": "Python: Debug with Env",
+            "name": "Python Debugger Paula (windows)",
+            "type": "python",
+            "python": "C:\\Users\\susan\\miniconda3\\envs\\paula\\python.exe",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["gui"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}\\application",
+            "env": {
+                "PATH": "${env:CONDA_PREFIX}/bin:${env:PATH}"
+              },
+             
+        },
+        {
+            "name": "Python: Debug with Env (wsl2)",
             "type": "python",
             "request": "launch",
             "program": "${file}", // Path to your script
@@ -24,6 +39,20 @@
             "env": {
                 "PATH": "${env:CONDA_PREFIX}/bin:${env:PATH}"
               },
-          }
+              
+          },
+          {
+            "name": "Python: Debug with Env (windows)",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}", // Path to your script
+            "python": "C:\\Users\\susan\\miniconda3\\envs\\paula\\python.exe",
+            "cwd": "${workspaceFolder}", // Optional: Working directory
+            "env": {
+                "PATH": "${env:CONDA_PREFIX}/bin:${env:PATH}"
+              },
+               
+          },
+
     ]
 }

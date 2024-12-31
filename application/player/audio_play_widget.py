@@ -2,6 +2,7 @@ import asyncio
 import math
 from pathlib import Path
 from typing import List
+
 from textual.app import App, ComposeResult
 from textual.containers import Vertical, Horizontal, Container
 from textual.widgets import Button, Static
@@ -11,12 +12,19 @@ import mutagen
 from textual_slider import Slider
 from textual import on
 from textual.events import MouseDown, MouseUp
+from textual.message import Message
+from typing import TYPE_CHECKING
 
 
 class AudioPlayerWidget(Container):
     """Custom ProgressBar to display time information."""
 
     MUSIC_END_EVENT = pygame.USEREVENT + 1
+
+    class PositionChanged(Message):
+        def __init__(self, value: str) -> None:
+            self.value = value  # The value to communicate
+            super().__init__()
 
     def __init__(self, cursor, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -35,7 +43,9 @@ class AudioPlayerWidget(Container):
         self.horizontal_container_slider = Horizontal()
         self.button_play = Button.success("play", id="button-play")
         self.button_stop = Button.error("stop", id="button-stop")
-        self.styles.width = "71"
+        self.button_back = Button.warning("back", id="button-back")
+        self.button_forward = Button.warning("forward", id="button-forward")
+        self.styles.width = "103"
         self.styles.height = "3"
         self.styles.align = ("left", "top")
         self.styles.padding = 0
@@ -50,7 +60,7 @@ class AudioPlayerWidget(Container):
         self.horizontal_container_slider.styles.gap = 0
 
         self.horizontal_container_button.styles.height = "3"
-        self.horizontal_container_button.styles.width = "32"
+        self.horizontal_container_button.styles.width = "64"
         self.horizontal_container_slider.styles.height = "3"
         self.horizontal_container_slider.styles.width = "39"
         self.horizontal_container_button.styles.align = ("left", "top")
@@ -65,8 +75,14 @@ class AudioPlayerWidget(Container):
         self.button_play.styles.margin = 0
         self.button_stop.styles.padding = 0
         self.button_stop.styles.margin = 0
+        self.button_forward.styles.padding = 0
+        self.button_forward.styles.margin = 0
+        self.button_back.styles.padding = 0
+        self.button_back.styles.margin = 0
         self.button_stop.disabled = True
         self.button_play.disabled = True
+        self.button_forward.disabled = True
+        self.button_back.disabled = True
         self.playlist = []
         self.current_song = -1
         self.block_update = False
@@ -86,6 +102,7 @@ class AudioPlayerWidget(Container):
                     self.playlist.insert(0, audio_file)
         if len(self.playlist) > 0 and not pygame.mixer.music.get_busy():
             self.button_play.disabled = False
+            self.button_forward.disabled = False
             if self.current_song == -1:
                 self.current_song = 0
 
@@ -108,13 +125,15 @@ class AudioPlayerWidget(Container):
         self.horizontal_container.mount(self.horizontal_container_button)
         self.horizontal_container_button.mount(self.button_play)
         self.horizontal_container_button.mount(self.button_stop)
+        self.horizontal_container_button.mount(self.button_back)
+        self.horizontal_container_button.mount(self.button_forward)
 
     def render(self):
         """Render the progress bar with time information."""
         super().render()
         return ""
 
-    def play_audio(self):
+    def play_audio(self, action=None):
 
         pb_p = self.button_play
         pb_s = self.button_stop
@@ -223,6 +242,7 @@ class AudioPlayerWidget(Container):
             if event.type == self.MUSIC_END_EVENT:
                 self.current_song += 1
                 if len(self.playlist) > self.current_song:
+                    self.post_message(self.PositionChanged(self.current_song))
                     self.stop_audio(remove_progress=False)
                     self.stop_progress_timer()
 
@@ -231,12 +251,53 @@ class AudioPlayerWidget(Container):
                     self.stop_audio(remove_progress=True)
                     self.stop_progress_timer()
 
+    def on_position_changed(self, value: int):
+        if int(value) >= 0 and int(value) < len(self.playlist):
+            self.current_song = value
+            if pygame.mixer.music.get_busy() or self.is_paused:
+                self.stop_audio(remove_progress=False)
+                self.stop_progress_timer()
+                self.play_audio()
+
+        if self.current_song == 0:
+            self.button_back.disabled = True
+        elif self.current_song >= len(self.playlist) - 1:
+            self.button_forward.disabled = True
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
         if button_id == "button-play":
             self.play_audio()
         elif button_id == "button-stop":
             self.stop_audio()
+        elif button_id == "button-back":
+            self.current_song -= 1
+            if self.current_song <= 0:
+                self.current_song = 0
+                self.button_back.disabled = True
+            self.button_forward.disabled = False
+            self.post_message(self.PositionChanged(self.current_song))
+            if pygame.mixer.music.get_busy():
+                self.stop_audio(remove_progress=False)
+                self.stop_progress_timer()
+                self.play_audio()
+            if self.is_paused:
+                self.stop_audio(remove_progress=False)
+                self.stop_progress_timer()
+        elif button_id == "button-forward":
+            self.current_song += 1
+            if self.current_song >= len(self.playlist) - 1:
+                self.current_song = len(self.playlist) - 1
+                self.button_forward.disabled = True
+            self.button_back.disabled = False
+            self.post_message(self.PositionChanged(self.current_song))
+            if pygame.mixer.music.get_busy():
+                self.stop_audio(remove_progress=False)
+                self.stop_progress_timer()
+                self.play_audio()
+            if self.is_paused:
+                self.stop_audio(remove_progress=False)
+                self.stop_progress_timer()
 
 
 class AudioPlayerApp(App):
