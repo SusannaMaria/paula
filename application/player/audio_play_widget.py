@@ -258,11 +258,15 @@ class AudioPlayerWidget(Container):
                 self.stop_audio(remove_progress=False)
                 self.stop_progress_timer()
                 self.play_audio()
-
         if self.current_song == 0:
             self.button_back.disabled = True
+
         elif self.current_song >= len(self.playlist) - 1:
             self.button_forward.disabled = True
+        if self.current_song > 0 and self.current_song < len(self.playlist):
+            self.button_back.disabled = False
+        if self.current_song >= 0 and self.current_song < len(self.playlist) - 1:
+            self.button_forward.disabled = False
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id

@@ -39,12 +39,13 @@ class TrackTableWidget(DataTable):
         time_since_last_click = current_time - self.last_click_time
 
         if event.button == 1:
-            if time_since_last_click <= self.double_click_threshold:
-                # Detected a double-click
-                # cursor_row = self.cursor_row
-                # row_data = self.get_row_at(cursor_row)
-                row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
-                self.post_message(self.PositionChanged(row_key.value))
+            # if time_since_last_click <= self.double_click_threshold:
+            # Detected a double-click
+            cursor_row = self.cursor_row
+            # row_data = self.get_row_at(cursor_row)
+            # row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+            # row_key.value
+            self.post_message(self.PositionChanged(cursor_row))
             self.last_click_time = current_time
 
     def populate_tracks(self, cursor, album_id: int):
