@@ -1,13 +1,14 @@
 from textual import on
 from textual.app import App, ComposeResult
 from textual.containers import Center, Vertical, Horizontal
-from textual.widgets import Label, OptionList
+from textual.widgets import Label, OptionList, Sparkline
 from textual.color import Color
 from textual_slider import Slider
 from textual.widgets.option_list import Option, Separator
 from textual.widget import Widget
 from gui.events import CustomClickEvent
 from textual.events import MouseUp
+import sqlite3
 
 
 class MySlider(Slider):
@@ -15,7 +16,7 @@ class MySlider(Slider):
         super().__init__(**kwargs)
 
     def on_click(self, event) -> None:
-        self.parent.parent.parent.send_event()
+        self.parent.parent.parent.parent.send_event()
 
 
 class GenreSliders(Widget):
@@ -67,7 +68,7 @@ class GenreSliders(Widget):
             "rock": 0.5,
         }
         self.styles.border = ("tall", "#008080")
-        self.styles.height = "16"
+        self.styles.height = "20"
         self.styles.width = "40"
         self.selected_genre = None
         self.selected_value = 0.5
@@ -134,8 +135,15 @@ class GenreSliders(Widget):
         genre = event.option.prompt
         value = self.genre_values[genre]
         # Create a new Vertical container with a Button and Label
+        data = distribution_of_feature(f"genre_{genre}")
+        sparky = Sparkline(data=data, summary_function=max, id="feature-distribution")
+
+        dynamic_root_vertical = Vertical()
         dynamic_vertical = Horizontal()
-        dynamic_widget_placeholder.mount(dynamic_vertical)
+        dynamic_widget_placeholder.mount(dynamic_root_vertical)
+        dynamic_root_vertical.mount(dynamic_vertical)
+
+        dynamic_root_vertical.mount(sparky)
 
         new_slider = MySlider(min=0, max=99, value=value * 100, id=f"{genre}-amp")
         new_label = Label(id=f"{genre}-amp-label")
@@ -146,6 +154,21 @@ class GenreSliders(Widget):
         dynamic_vertical.mount(new_label)
         self.selected_genre = genre
         self.selected_value = value
+
+
+def distribution_of_feature(feature):
+
+    database_path = "database/paula.sqlite"
+    connection = sqlite3.connect(database_path)
+    cursor = connection.cursor()
+    sql = "SELECT count FROM feature_distribution WHERE feature_name = ?;"
+    cursor.execute(
+        sql,
+        (feature,),
+    )
+    results = cursor.fetchall()
+    connection.close()
+    return [tup[0] for tup in results]
 
 
 class SpinalTapApp(App):

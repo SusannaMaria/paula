@@ -518,11 +518,25 @@ def get_cover_by_album_id(cursor, album_id):
         (album_id,),
     )
     result = cursor.fetchone()
-    cover_path = Path(result[0]) / "cover.jpg"
+
+    folder = result[0]
+
+    config = load_config()
+    translate_config = config["local_translate_audio_path"]
+
+    if "albums.folder_path" in translate_config["fields"]:
+        folder = (
+            folder.replace(translate_config["source"], translate_config["target"], 1)
+            if folder.startswith(translate_config["source"])
+            else folder
+        )
+
+    cover_path = Path(folder) / "cover.jpg"
+
     if cover_path.exists():
         return cover_path
     else:
-        cover_path = Path(result[0]) / "cover.png"
+        cover_path = Path(folder) / "cover.png"
     if cover_path.exists():
         return cover_path
 
