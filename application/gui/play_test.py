@@ -1,9 +1,10 @@
+import threading
+import time
+
+from pygame import mixer
 from textual.app import App, ComposeResult
 from textual.containers import Container
 from textual.widgets import ProgressBar, Static
-from pygame import mixer
-import time
-import threading
 
 
 class AudioPlayerApp(App):

@@ -3,8 +3,8 @@ import curses
 import json
 
 import numpy as np
-from utils.config_loader import load_config
 from database.database_helper import execute_query
+from utils.config_loader import load_config
 
 
 def map_rating_to_similarity(similarity, rating, adjustment_factor=0.2):

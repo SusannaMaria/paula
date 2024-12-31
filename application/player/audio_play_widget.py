@@ -1,19 +1,18 @@
 import asyncio
 import math
 from pathlib import Path
-from typing import List
+from typing import TYPE_CHECKING, List
 
-from textual.app import App, ComposeResult
-from textual.containers import Vertical, Horizontal, Container
-from textual.widgets import Button, Static
-import pygame
-from textual.timer import Timer
 import mutagen
-from textual_slider import Slider
+import pygame
 from textual import on
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal, Vertical
 from textual.events import MouseDown, MouseUp
 from textual.message import Message
-from typing import TYPE_CHECKING
+from textual.timer import Timer
+from textual.widgets import Button, Static
+from textual_slider import Slider
 
 
 class AudioPlayerWidget(Container):

@@ -26,15 +26,15 @@
     THE SOFTWARE.
 """
 
-from pathlib import Path
-import sys
-from utils.config_loader import load_config
 import logging
 import os
-import subprocess
-import os
-from datetime import datetime
 import sqlite3
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+from utils.config_loader import load_config
 
 logger = logging.getLogger(__name__)
 conn = None

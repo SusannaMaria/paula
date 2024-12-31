@@ -27,15 +27,18 @@
 """
 
 import concurrent.futures
-from functools import partial
-from datetime import datetime
-from pathlib import Path
-import sqlite3
-import requests
-import time
+import csv
+import hashlib
 import logging
-from updater.feature_extractor import run_essentia_extractor
-from utils.config_loader import load_config
+import os
+import signal
+import sqlite3
+import time
+from datetime import datetime
+from functools import partial
+from pathlib import Path
+
+import requests
 from database.database_helper import (
     close_connection,
     close_cursor,
@@ -45,13 +48,9 @@ from database.database_helper import (
     update_album_tags,
     update_track_tags,
 )
+from utils.config_loader import load_config
 
-import csv
-import os
-import signal
-import time
-import requests
-import hashlib
+from updater.feature_extractor import run_essentia_extractor
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,7 @@
 import logging
-from gui.data_table import PlaylistWidget, TrackTableWidget
-from gui.music_database_widget import MusicDatabaseWidget
+import sqlite3
+from typing import Iterable
+
 from database.database_helper import (
     close_connection,
     create_cursor,
@@ -9,24 +10,25 @@ from database.database_helper import (
     get_tracks_between_by_genre,
 )
 from player.audio_play_widget import AudioPlayerWidget
-from gui.log_controller import LogController
+from textual import on
 from textual.app import ComposeResult, SystemCommand
+from textual.containers import Container, Grid, Horizontal, Vertical
+from textual.css.scalar import Scalar
+from textual.screen import ModalScreen, Screen
 from textual.widgets import (
-    Log,
     Button,
-    Label,
-    Placeholder,
     Footer,
+    Label,
+    Log,
+    Placeholder,
 )
-from gui.events import CustomClickEvent
-from textual.containers import Container, Vertical, Horizontal, Grid
-from textual.screen import Screen, ModalScreen
 from textual_image.widget import HalfcellImage, SixelImage, TGPImage, UnicodeImage
 from textual_image.widget import Image as AutoImage
-from typing import Iterable
-from textual.css.scalar import Scalar
-import sqlite3
-from textual import on
+
+from gui.data_table import PlaylistWidget, TrackTableWidget
+from gui.events import CustomClickEvent
+from gui.log_controller import LogController
+from gui.music_database_widget import MusicDatabaseWidget
 
 TEST_IMAGE = r"c:/temp/cover_d.jpg"
 

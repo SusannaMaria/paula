@@ -1,14 +1,16 @@
+import sqlite3
+
 from textual import on
 from textual.app import App, ComposeResult
-from textual.containers import Center, Vertical, Horizontal
-from textual.widgets import Label, OptionList, Sparkline
 from textual.color import Color
-from textual_slider import Slider
-from textual.widgets.option_list import Option, Separator
-from textual.widget import Widget
-from gui.events import CustomClickEvent
+from textual.containers import Center, Horizontal, Vertical
 from textual.events import MouseUp
-import sqlite3
+from textual.widget import Widget
+from textual.widgets import Label, OptionList, Sparkline
+from textual.widgets.option_list import Option, Separator
+from textual_slider import Slider
+
+from gui.events import CustomClickEvent
 
 
 class MySlider(Slider):

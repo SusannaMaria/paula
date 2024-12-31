@@ -1,12 +1,13 @@
 import logging
-from gui.paula_screen import PaulaScreen
-from gui.log_controller import LogController
+from typing import Iterable
+
 import pygame
+from textual.app import App
 from textual_image.widget import HalfcellImage, SixelImage, TGPImage, UnicodeImage
 from textual_image.widget import Image as AutoImage
-from textual.app import App
 
-from typing import Iterable
+from gui.log_controller import LogController
+from gui.paula_screen import PaulaScreen
 
 # Configure logging for debugging
 logging.basicConfig(

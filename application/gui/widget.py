@@ -2,6 +2,7 @@
 
 """Showcase textual-image's Textual Widgets."""
 
+
 from argparse import ArgumentParser
 from pathlib import Path
 from typing import cast
@@ -29,7 +30,6 @@ from textual.widgets import (
     TabPane,
 )
 from textual.widgets.option_list import Option
-
 from textual_image.widget import HalfcellImage, SixelImage, TGPImage, UnicodeImage
 from textual_image.widget import Image as AutoImage
 

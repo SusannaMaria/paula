@@ -1,16 +1,18 @@
-from gui.genre_slider import GenreSliders
-from gui.log_controller import LogController
-from textual.widgets import (
-    Tree,
-    Input,
-    Tabs,
-    TabbedContent,
-    TabPane,
-)
-from textual.containers import Container
-from textual.app import ComposeResult
 import logging
 import sqlite3
+
+from textual.app import ComposeResult
+from textual.containers import Container
+from textual.widgets import (
+    Input,
+    TabbedContent,
+    TabPane,
+    Tabs,
+    Tree,
+)
+
+from gui.genre_slider import GenreSliders
+from gui.log_controller import LogController
 
 
 class MusicDatabaseWidget(Container):

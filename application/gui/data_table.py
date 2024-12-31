@@ -1,13 +1,15 @@
-from database.database_helper import close_cursor, create_cursor, execute_query
-from updater.updater_main import get_audio_path_from_track_id
-from gui.log_controller import LogController
-from textual.widgets import DataTable
-from textual.events import MouseDown
-from textual.coordinate import Coordinate
 import sqlite3
 import time
+
+from database.database_helper import close_cursor, create_cursor, execute_query
 from textual import on
+from textual.coordinate import Coordinate
+from textual.events import MouseDown
 from textual.message import Message
+from textual.widgets import DataTable
+from updater.updater_main import get_audio_path_from_track_id
+
+from gui.log_controller import LogController
 
 
 class TrackTableWidget(DataTable):

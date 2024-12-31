@@ -26,12 +26,9 @@
     THE SOFTWARE.
 """
 
+import imghdr
 import logging
 import os
-from mutagen.mp3 import MP3
-from mutagen.id3 import ID3, APIC
-from mutagen.flac import FLAC, Picture
-import imghdr
 
 from database.database_helper import (
     close_connection,
@@ -39,6 +36,9 @@ from database.database_helper import (
     create_cursor,
     execute_query,
 )
+from mutagen.flac import FLAC, Picture
+from mutagen.id3 import APIC, ID3
+from mutagen.mp3 import MP3
 from PIL import Image
 
 logger = logging.getLogger(__name__)

@@ -1,6 +1,6 @@
 import json
-from collections import defaultdict, Counter
 import re
+from collections import Counter, defaultdict
 
 from database.database_helper import create_cursor, execute_query
 

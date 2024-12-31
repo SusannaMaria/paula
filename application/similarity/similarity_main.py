@@ -1,15 +1,17 @@
 import curses
 import json
 import logging
-from pathlib import Path
-import sqlite3
-import numpy as np
 import os
-from similarity.train_weights import train_feature_weights
-from similarity.similarity_feedback import display_tracks_and_collect_feedback
-from similarity.html_utils import inject_context_menu
-from search.search_main import create_search_query
-from utils.config_loader import load_config, update_weight_config
+import sqlite3
+import subprocess
+from collections import defaultdict
+from multiprocessing import Lock, Pool, Value
+from pathlib import Path
+
+import networkx as nx
+import numpy as np
+from annoy import AnnoyIndex
+from colorama import Fore, Style, init
 from database.database_helper import (
     close_connection,
     close_cursor,
@@ -19,14 +21,12 @@ from database.database_helper import (
     get_track_by_id,
 )
 from pyvis.network import Network
-import networkx as nx
-from annoy import AnnoyIndex
-import numpy as np
 from scipy.spatial.distance import cosine
-from collections import defaultdict
-from multiprocessing import Pool, Value, Lock
-from colorama import Fore, Style, init
-import subprocess
+from search.search_main import create_search_query
+from similarity.html_utils import inject_context_menu
+from similarity.similarity_feedback import display_tracks_and_collect_feedback
+from similarity.train_weights import train_feature_weights
+from utils.config_loader import load_config, update_weight_config
 
 init(autoreset=True)
 

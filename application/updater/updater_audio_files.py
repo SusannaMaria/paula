@@ -1,8 +1,8 @@
-from datetime import datetime
 import logging
 import os
+import uuid
+from datetime import datetime
 
-from importer.importer_main import extract_valid_uuids, get_tag
 from database.database_helper import (
     close_connection,
     close_cursor,
@@ -13,11 +13,11 @@ from database.database_helper import (
     insert_artist,
     insert_track,
 )
-import uuid
-from mutagen.mp4 import MP4
-from mutagen.mp3 import MP3
+from importer.importer_main import extract_valid_uuids, get_tag
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3, ID3TimeStamp
+from mutagen.mp3 import MP3
+from mutagen.mp4 import MP4
 
 logger = logging.getLogger(__name__)
 

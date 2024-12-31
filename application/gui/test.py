@@ -1,4 +1,5 @@
 import sqlite3
+
 import matplotlib.pyplot as plt
 
 # Connect to the database

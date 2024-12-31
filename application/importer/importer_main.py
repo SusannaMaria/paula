@@ -26,29 +26,29 @@
     THE SOFTWARE.
 """
 
-from mutagen.mp3 import MP3
-from mutagen.flac import FLAC
-from mutagen.id3 import ID3, ID3TimeStamp
+import csv
+import logging
 import os
-from datetime import datetime
+import signal
 import uuid
+from datetime import datetime
+
 from database.database_helper import (
     close_connection,
     close_cursor,
     commit,
     create_cursor,
-    get_connection,
-    insert_artist,
-    insert_album,
-    insert_track,
-    insert_tag,
-    execute_query_print_out,
     execute_query,
+    execute_query_print_out,
+    get_connection,
+    insert_album,
+    insert_artist,
+    insert_tag,
+    insert_track,
 )
-import csv
-import signal
-import logging
-
+from mutagen.flac import FLAC
+from mutagen.id3 import ID3, ID3TimeStamp
+from mutagen.mp3 import MP3
 from utils.config_loader import load_config
 
 # Load configuration
