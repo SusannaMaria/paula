@@ -26,32 +26,51 @@
     THE SOFTWARE.
 """
 
-import logging
+import time
 
 import pygame
-from textual.app import App
-
-from gui.log_controller import LogController
-from gui.paula_screen import PaulaScreen
-
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+import sounddevice as sd
+from utils.config_loader import load_config
 
 
-class MusicDatabaseApp(App):
-    """Textual App to display the MusicDatabaseWidget."""
+def get_sounddevices():
+    devices = sd.query_devices()
+    playback_devices = [d for d in devices if d["max_output_channels"] > 0]
+    print("Available Playback Devices (SoundDevice):")
+    list_devices = []
+    for idx, device in enumerate(playback_devices):
+        try:
+            pygame.mixer.quit()
+            pygame.mixer.init(devicename=device["name"])
+            if device["name"] not in list_devices:
+                list_devices.append(device["name"])
+        except pygame.error:
+            pass
+    return list_devices
 
-    CSS_PATH = "treelist.tcss"
 
-    def on_mount(self) -> None:
-        self.log_controller = LogController()
-
-        # Start with the Main Screen
-        pygame.init()
-        self.push_screen(PaulaScreen(self.log_controller))
+def set_sounddevice(sounddevice=None):
+    if sounddevice and sounddevice in get_sounddevices():
+        pygame.mixer.quit()
+        pygame.mixer.init(sounddevice)
+    else:
+        config = load_config()
+        sounddevice = config.setdefault("sounddevice", None)
+        if sounddevice:
+            try:
+                pygame.mixer.quit()
+                pygame.mixer.init(sounddevice)
+            except pygame.error:
+                pygame.mixer.quit()
+                pygame.mixer.init()
 
 
 if __name__ == "__main__":
-
-    MusicDatabaseApp().run()
+    pygame.init()
+    set_sounddevice()
+    pygame.mixer.music.load("c:/temp/test.flac")
+    pygame.mixer.music.play()
+    print("Playing music...")
+    while pygame.mixer.music.get_busy():
+        time.sleep(1)
+    print("Music ended!")

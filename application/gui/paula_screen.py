@@ -1,5 +1,32 @@
+"""
+    Title: Music Collection Manager
+    Description: A Python application to manage and enhance a personal music collection.
+    Author: Susanna
+    License: MIT License
+    Created: 2025
+
+    Copyright (c) 2025 Susanna Maria Hepp
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+"""
+
 import logging
-import sqlite3
 from typing import Iterable
 
 from database.database_helper import (
@@ -15,13 +42,7 @@ from textual.app import ComposeResult, SystemCommand
 from textual.containers import Container, Grid, Horizontal, Vertical
 from textual.css.scalar import Scalar
 from textual.screen import ModalScreen, Screen
-from textual.widgets import (
-    Button,
-    Footer,
-    Label,
-    Log,
-    Placeholder,
-)
+from textual.widgets import Button, Footer, Label, Log, Placeholder, Static
 from textual_image.widget import HalfcellImage, SixelImage, TGPImage, UnicodeImage
 from textual_image.widget import Image as AutoImage
 
@@ -42,12 +63,36 @@ RENDERING_METHODS = {
 
 
 class SettingsScreen(Screen):
+    BINDINGS = [
+        ("q", "do_close", "Close the Help"),
+    ]
+
+    def action_do_close(self) -> None:
+        self.app.pop_screen()
+
     def compose(self) -> ComposeResult:
-        yield Placeholder("Settings Screen")
-        yield Footer()
+        yield Grid(
+            Static(
+                "Grid cell 1\n\nrow-span: 3;\ncolumn-span: 2;", id="static_settings_1"
+            ),
+            Static("Grid cell 2", classes="static_settings", id="static2"),
+            Static("Grid cell 3", classes="static_settings", id="static3"),
+            Static("Grid cell 4", classes="static_settings", id="static4"),
+            Static("Grid cell 5", classes="static_settings", id="static5"),
+            Static("Grid cell 6", classes="static_settings", id="static6"),
+            Static("Grid cell 7", classes="static_settings", id="static7"),
+            classes="settings_grid",
+        )
 
 
 class HelpScreen(Screen):
+    BINDINGS = [
+        ("q", "do_close", "Close the Help"),
+    ]
+
+    def action_do_close(self) -> None:
+        self.app.pop_screen()
+
     def compose(self) -> ComposeResult:
         yield Placeholder("Help Screen")
         yield Footer()
@@ -97,8 +142,8 @@ class PaulaScreen(Screen):
 
     BINDINGS = [
         ("d", "switch_mode('dashboard')", "Dashboard"),
-        ("s", "switch_mode('settings')", "Settings"),
-        ("h", "switch_mode('help')", "Help"),
+        ("s", "show_settings", "Settings"),
+        ("h", "show_help", "Help"),
         ("q", "request_quit", "Quit the app"),
         ("l", "show_log", "Show the log"),
     ]
@@ -112,6 +157,14 @@ class PaulaScreen(Screen):
     def update_image(self, image_path):
         image_widget = self.query_one("#cover-image")
         image_widget.image = image_path
+
+    def action_show_help(self) -> None:
+        """Action to display the help dialog."""
+        self.app.push_screen(HelpScreen(self.log_controller))
+
+    def action_show_settings(self) -> None:
+        """Action to display the settings dialog."""
+        self.app.push_screen(SettingsScreen(self.log_controller))
 
     def action_show_log(self) -> None:
         """Action to display the quit dialog."""

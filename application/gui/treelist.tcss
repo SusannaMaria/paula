@@ -58,3 +58,27 @@
         background: #202020; /* Dark background for debugging */
         color: white;        /* White text */
     }
+
+
+        .settings_grid {
+            width: 30%;
+            height: 30%;
+            grid-size: 3 4;
+            grid-rows: 1fr;
+            grid-columns: 1fr;
+            grid-gutter: 1;
+            align: center middle;
+        }
+        .static_settings {
+            color: auto;
+            background: lightblue;
+            height: 100%;
+            padding: 1 2;
+        }
+
+        #static_settings_1 {
+            tint: magenta 40%;
+            row-span: 3;
+            column-span: 2;
+            height: 100%;
+        }

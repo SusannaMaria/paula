@@ -4,9 +4,9 @@
     Description: A Python application to manage and enhance a personal music collection.
     Author: Susanna
     License: MIT License
-    Created: 2024
+    Created: 2025
 
-    Copyright (c) 2024 Susanna Maria Hepp
+    Copyright (c) 2025 Susanna Maria Hepp
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal

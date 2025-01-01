@@ -31,6 +31,7 @@
             "albums.folder_path"
         ]
     },
+    "sounddevice": "Lautsprecher (Realtek(R) Audio)",
     "features": {
         "danceability": {
             "weight": 1.0656097829367392

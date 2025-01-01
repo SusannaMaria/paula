@@ -1,18 +1,44 @@
-import asyncio
-import math
+"""
+    Title: Music Collection Manager
+    Description: A Python application to manage and enhance a personal music collection.
+    Author: Susanna
+    License: MIT License
+    Created: 2025
+
+    Copyright (c) 2025 Susanna Maria Hepp
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+"""
+
 from pathlib import Path
-from typing import TYPE_CHECKING, List
 
 import mutagen
 import pygame
 from textual import on
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal, Vertical
-from textual.events import MouseDown, MouseUp
+from textual.containers import Container, Horizontal
 from textual.message import Message
 from textual.timer import Timer
 from textual.widgets import Button, Static
 from textual_slider import Slider
+
+from player.device import set_sounddevice
 
 
 class AudioPlayerWidget(Container):
@@ -27,7 +53,7 @@ class AudioPlayerWidget(Container):
 
     def __init__(self, cursor, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        pygame.mixer.init()
+        set_sounddevice()
         self.cursor = cursor
         self.is_paused = False
         self.song_length = 0  # Length of the song in seconds
