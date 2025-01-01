@@ -113,6 +113,14 @@ class MyApp(App):
                 path="c:/Users/susan/paula/application/gui/images/music-stop.png",
                 id="stop",
             )
+            yield CustomButton(
+                path="c:/Users/susan/paula/application/gui/images/backwards.png",
+                id="backward",
+            )
+            yield CustomButton(
+                path="c:/Users/susan/paula/application/gui/images/forwards.png",
+                id="forward",
+            )
 
     async def on_custom_button_button_clicked(
         self, message: CustomButton.ButtonClicked
