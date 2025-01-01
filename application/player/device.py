@@ -42,35 +42,35 @@ def get_sounddevices():
         try:
             pygame.mixer.quit()
             pygame.mixer.init(devicename=device["name"])
-            if device["name"] not in list_devices:
-                list_devices.append(device["name"])
+
+            exists = False
+            for key, value in list_devices:
+                if value == device["name"]:
+                    exists = True
+                    break
+            if not exists:
+                list_devices.append((idx, device["name"]))
         except pygame.error:
             pass
     return list_devices
 
 
 def set_sounddevice(sounddevice=None):
-    if sounddevice and sounddevice in get_sounddevices():
-        pygame.mixer.quit()
-        pygame.mixer.init(sounddevice)
-    else:
+    if not sounddevice:
         config = load_config()
-        sounddevice = config.setdefault("sounddevice", None)
-        if sounddevice:
+        sounddevice = config.setdefault("sounddevice", "default")
+
+    set_soundevice_by_name(sounddevice)
+
+
+def set_soundevice_by_name(sounddevice):
+    for key, value in get_sounddevices():
+        if value == sounddevice:
             try:
                 pygame.mixer.quit()
-                pygame.mixer.init(sounddevice)
+                pygame.mixer.init(key)
             except pygame.error:
                 pygame.mixer.quit()
                 pygame.mixer.init()
-
-
-if __name__ == "__main__":
-    pygame.init()
-    set_sounddevice()
-    pygame.mixer.music.load("c:/temp/test.flac")
-    pygame.mixer.music.play()
-    print("Playing music...")
-    while pygame.mixer.music.get_busy():
-        time.sleep(1)
-    print("Music ended!")
+            finally:
+                return
