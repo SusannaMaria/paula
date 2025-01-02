@@ -68,6 +68,8 @@ RENDERING_METHODS = {
     "unicode": UnicodeImage,
 }
 
+MANUAL_REFRESH = ["#border_top_volume", "#border_bottom_volume"]
+
 
 class SettingsScreen(Screen):
     BINDINGS = [
@@ -311,6 +313,12 @@ class PaulaScreen(Screen):
     ) -> None:
         # Broadcast the message to all widgets
         self.query_one(AudioPlayerWidget).on_position_changed(message.value)
+
+    def _on_resize(self, event):
+        super()._on_resize(event)
+        for id in MANUAL_REFRESH:
+            self.query_one(id, BorderLabel).refresh()
+        self.query_one("#metadata", Vertical).refresh()
 
 
 class BorderLabel(Label):
