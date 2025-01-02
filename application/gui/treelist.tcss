@@ -1,36 +1,45 @@
- #track_table {
-        height: 50%;
-    }
-    #image_widget {
-        width: 100%;
-        height: 30%
-    }
-    #playlist_table {
-        height: 50%;
-    }
-    #tracklist {
-        width: 60%;
-    }
-    #metadata {
-        width: 15%;
-    }
-    #feature-distribution {
-        width: 100%;
-    }   
-    #search_bar_tracks {
+#track_table {
+    height: 50%;
+}
+
+#image_widget {
+    width: 100%;
+    height: 30%
+}
+
+#playlist_table {
+    height: 50%;
+}
+
+#tracklist {
+    width: 60%;
+}
+
+#metadata {
+    width: 15%;
+}
+
+#feature-distribution {
+    width: 100%;
+}   
+
+#search_bar_tracks {
     width: 40%;
-    }
-    /* Hover effect */
-    .control-button:hover {
-        background: darkgray;
-        color: black;
-    }    
-     Tabs {
-        dock: top;
-    }
-    QuitScreen {
+}
+
+.control-button:hover {
+    background: darkgray;
+    color: black;
+}   
+
+Tabs {
+    dock: top;
+}
+
+QuitScreen {
     align: center middle;
 }
+
 #dialog {
     grid-size: 2;
     grid-gutter: 1 2;
@@ -41,6 +50,7 @@
     border: thick $background 80%;
     background: $surface;
 }
+
 #question {
     column-span: 2;
     height: 1fr;
@@ -48,37 +58,81 @@
     content-align: center middle;
 }
 
-    .background-screen {
-        background: rgba(0, 0, 255, 0.3); /* Light blue translucent */
-        width: 100%;
-        height: 100%;
-    }
+.background-screen {
+    background: rgba(0, 0, 255, 0.3); /* Light blue translucent */
+    width: 100%;
+    height: 100%;
+}
 
-        Screen {
-        background: #202020; /* Dark background for debugging */
-        color: white;        /* White text */
-    }
+Screen {
+    background: #202020; /* Dark background for debugging */
+    color: white;        /* White text */
+}
 
+.settings_grid {
+    width: 30%;
+    height: 30%;
+    grid-size: 3 4;
+    grid-rows: 1fr;
+    grid-columns: 1fr;
+    grid-gutter: 1;
+    align: center middle;
+}
 
-        .settings_grid {
-            width: 30%;
-            height: 30%;
-            grid-size: 3 4;
-            grid-rows: 1fr;
-            grid-columns: 1fr;
-            grid-gutter: 1;
-            align: center middle;
-        }
-        .static_settings {
-            color: auto;
-            background: lightblue;
-            height: 100%;
-            padding: 1 2;
-        }
+.static_settings {
+    color: auto;
+    background: lightblue;
+    height: 100%;
+    padding: 1 2;
+}
 
-        #static_settings_1 {
-            tint: magenta 40%;
-            row-span: 3;
-            column-span: 2;
-            height: 100%;
-        }
+#static_settings_1 {
+    tint: magenta 40%;
+    row-span: 3;
+    column-span: 2;
+    height: 100%;
+}
+
+.audio_button {
+    margin: 0 0 0 0;
+    min-width: 8;
+    padding: 0 0;
+}
+
+.audio_button:hover {
+    background: darkgray;
+    color: black;
+}   
+
+.horizontal_container_top {
+    margin: 0 0 0 0;
+    padding: 0 0;
+    height:3;
+}
+
+AudioPlayerWidget{
+    width: 103;
+    height: 3;
+    padding: 0 0;
+    margin: 0 0 0 0;
+    background: #333333
+}
+
+#time-display {
+    align: left middle;
+    padding: 0 0;
+    margin: 0 0 0 0;
+}
+
+#slider-progress {
+    padding: 0 0;
+    margin: 0 0 0 0;
+}
+
+#horizontal_container_button {
+    width: 32;
+}
+
+#horizontal_container_slider {
+    width:39
+}

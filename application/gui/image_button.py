@@ -36,6 +36,7 @@ class CustomButton(Widget):
         self.styles.width = Scalar.parse("7")
         self.styles.height = Scalar.parse("3")
         self.button_id = id
+
         if modes:
             self.modes = modes
         else:
@@ -44,45 +45,34 @@ class CustomButton(Widget):
         self.mode_idx = 0
 
         for mode in self.modes:
-
-            # self.button_id = id
-            # self.image_icon_path = path
-
             image_normal = self.overlay_image(mode["path"])
             image_pushed = self.overlay_image(mode["path"], True)
+            image_disabled = self.overlay_image(mode["path"], False, True)
+            mode["image_pushed"] = image_pushed
+            mode["image_normal"] = image_normal
+            mode["image_disabled"] = image_disabled
 
-            Image = RENDERING_METHODS["auto"]
-            image_widget_normal = Image(
-                image_normal, id=f'image_widget_normal_{mode["id"]}'
-            )
-            image_widget_pushed = Image(
-                image_pushed, id=f'image_widget_pushed_{mode["id"]}'
-            )
-
-            image_widget_normal.styles.width = Scalar.parse("7")
-            image_widget_normal.styles.height = Scalar.parse("3")
-            image_widget_normal.styles.padding = 0
-            image_widget_normal.styles.margin = 0
-
-            image_widget_pushed.styles.width = Scalar.parse("7")
-            image_widget_pushed.styles.height = Scalar.parse("3")
-            image_widget_pushed.styles.padding = 0
-            image_widget_pushed.styles.margin = 0
-            mode["image_pushed"] = image_widget_pushed
-            mode["image_normal"] = image_widget_normal
+        mode = self.modes[self.mode_idx]
+        Image = RENDERING_METHODS["auto"]
+        self.image = Image(mode["image_normal"], id=mode["id"])
+        self.image.styles.width = Scalar.parse("7")
+        self.image.styles.height = Scalar.parse("3")
+        self.image.styles.padding = 0
+        self.image.styles.margin = 0
+        self.block_mouse_event = False
 
     def set_mode_idx(self, id):
         for index, mode in enumerate(self.modes):
             if id in mode["id"]:
                 self.mode_idx = index
-                self.on_mount(Event())
+                self.image.image = mode["image_normal"]
                 return True
         return False
 
     def get_mode(self):
         return self.modes[self.mode_idx]["id"]
 
-    def overlay_image(self, icon_path, is_pushed=False):
+    def overlay_image(self, icon_path, is_pushed=False, is_disabled=False):
         button_size = (255, 255)  # Width, Height
         icon_size = (180, 180)  # Width, Height
         if not is_pushed:
@@ -102,8 +92,10 @@ class CustomButton(Widget):
         x_offset = (button_size[0] - overlay.width) // 2
         y_offset = (button_size[1] - overlay.height) // 2
         canvas.paste(overlay, (x_offset, y_offset), mask=overlay)
-
-        alpha = 255
+        if is_disabled:
+            alpha = 10
+        else:
+            alpha = 140
         overlay = Image.blend(
             Image.new("RGBA", canvas.size, (255, 255, 255, 0)), canvas, alpha / 255
         )
@@ -112,28 +104,31 @@ class CustomButton(Widget):
         return Image.alpha_composite(background, overlay)
 
     def on_mount(self, event):
-        mode = self.modes[self.mode_idx]
-
-        if isinstance(event, MouseDown) and event.button == 1:
-            for child in list(self.children):
-                child.remove()
-            self.mount(mode["image_pushed"])
-        elif isinstance(event, MouseUp) and event.button == 1:
-            for child in list(self.children):
-                child.remove()
-            self.mount(mode["image_normal"])
-        else:
-            for child in list(self.children):
-                child.remove()
-            self.mount(mode["image_normal"])
-            sleep(0.5)
+        # for child in list(self.children):
+        #     child.remove()
+        self.mount(self.image)
 
     def on_mouse_down(self, event: MouseDown):
-        self.on_mount(event)
+        if not self.block_mouse_event:
+            self.set_state("pushed")
 
     def on_mouse_up(self, event: MouseUp):
-        self.on_mount(event)
-        self.post_message(self.ButtonClicked(self, button_id=self.button_id))
+        if not self.block_mouse_event:
+            self.set_state("normal")
+
+    def set_state(self, state="normal"):
+        self.block_mouse_event = True
+        mode = self.modes[self.mode_idx]
+        if "normal" in state:
+            # self.image.image = mode["image_normal"]
+            self.post_message(self.ButtonClicked(self, button_id=self.button_id))
+        elif "pushed" in state:
+            pass
+            # self.image.image = mode["image_pushed"]
+        elif "disabled" in state:
+            # self.image.image = mode["image_disabled"]
+            pass
+        self.block_mouse_event = False
 
 
 class MyApp(App):

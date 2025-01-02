@@ -66,7 +66,10 @@ class MusicDatabaseWidget(Container):
         with TabbedContent(initial="tree_artists_tab"):
             with TabPane("Artists->Albums", id="tree_artists_tab"):
                 yield Input(placeholder="Search Artists or Albums ...", id="search_bar")
-                yield Tree("Music Database", id="music_tree")  # Assign the Tree an ID
+                root_tree = Tree("Music Database", id="music_tree")
+                root_tree.root.expand()
+                root_tree.focus()
+                yield root_tree  # Assign the Tree an ID
             with TabPane("Genres->Artists", id="tree_genres_artists_tab"):
                 yield GenreSliders(id="genre_slider")
                 yield Tree("Genre Tree", id="genre_tree")

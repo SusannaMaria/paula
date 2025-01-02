@@ -26,12 +26,16 @@
     THE SOFTWARE.
 """
 
+import ctypes
 import io
+from ctypes import POINTER, cast
 from pathlib import Path
 
 import mutagen
 import pygame
+from comtypes import CLSCTX_ALL
 from gui.image_button import CustomButton
+from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from pydub import AudioSegment
 from textual import on
 from textual.app import App, ComposeResult
@@ -42,6 +46,40 @@ from textual.widgets import Button, Static
 from textual_slider import Slider
 
 from player.device import set_sounddevice
+
+# Constants
+DEVICE_SPEAKERS = 0  # Master audio device
+VOLUME_MIN = 0
+VOLUME_MAX = 65535
+winmm = ctypes.WinDLL("winmm.dll")
+
+
+def set_system_volume(level: float):
+    """
+    Set the system audio volume.
+
+    :param level: Volume level as a float between 0.0 (mute) and 1.0 (max volume)
+    """
+    devices = AudioUtilities.GetSpeakers()
+    interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+    volume = cast(interface, POINTER(IAudioEndpointVolume))
+    volume.SetMasterVolumeLevelScalar(level, None)
+
+
+def get_system_volume():
+    """
+    Get the current system audio volume as a float between 0.0 and 1.0.
+
+    :return: Current system volume as a float
+    """
+    # Get the default audio output device
+    devices = AudioUtilities.GetSpeakers()
+    interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+    volume = cast(interface, POINTER(IAudioEndpointVolume))
+
+    # Get the volume level as a scalar (0.0 to 1.0)
+    current_volume = volume.GetMasterVolumeLevelScalar()
+    return current_volume
 
 
 class AudioPlayerWidget(Container):
@@ -64,77 +102,29 @@ class AudioPlayerWidget(Container):
         self.elapsed_time = 0
         self.time_display = Static("0:00 / 0:00", id="time-display")
         self.slider_progress = Slider(min=0, max=100, value=0, id="slider-progress")
+        self.slider_volume = Slider(min=0, max=100, value=0, id="slider-volume")
         self.update_components = True
         self.task_ref = None
         self.horizontal_container = Horizontal()
-        self.horizontal_container_button = Horizontal()
-        self.horizontal_container_slider = Horizontal()
-        # self.button_play = Button.success("play", id="button-play")
-        # self.button_stop = Button.error("stop", id="button-stop")
-        # self.button_back = Button.warning("back", id="button-back")
-        # self.button_forward = Button.warning("forward", id="button-forward")
-
-        play_modes = [
-            {
-                "id": "button-play",
-                "path": "c:/Users/susan/paula/application/gui/images/music-play.png",
-            },
-            {
-                "id": "button-pause",
-                "path": "c:/Users/susan/paula/application/gui/images/music-pause.png",
-            },
-            {
-                "id": "button-resume",
-                "path": "c:/Users/susan/paula/application/gui/images/music-resume.png",
-            },
-        ]
-        self.button_play = CustomButton(id="button-play", modes=play_modes)
-        self.button_stop = CustomButton(
-            path="c:/Users/susan/paula/application/gui/images/music-stop.png",
-            id="button-stop",
+        self.horizontal_container_button = Horizontal(
+            classes="horizontal_container_top", id="horizontal_container_button"
         )
-        self.button_back = CustomButton(
-            path="c:/Users/susan/paula/application/gui/images/backwards.png",
-            id="button-back",
+        self.horizontal_container_slider = Horizontal(
+            classes="horizontal_container_top", id="horizontal_container_slider"
         )
-        self.button_forward = CustomButton(
-            path="c:/Users/susan/paula/application/gui/images/forwards.png",
-            id="button-forward",
+        self.button_play = Button.success(
+            "play", id="button-play", classes="audio_button"
         )
-        self.styles.width = "103"
-        self.styles.height = "3"
-        self.styles.align = ("left", "top")
-        self.styles.padding = 0
-        self.styles.margin = 0
-        self.styles.gap = 0
-        self.styles.background = "#333333"
-        self.horizontal_container_button.styles.padding = 0
-        self.horizontal_container_button.styles.margin = 0
-        self.horizontal_container_button.styles.gap = 0
-        self.horizontal_container_slider.styles.padding = 0
-        self.horizontal_container_slider.styles.margin = 0
-        self.horizontal_container_slider.styles.gap = 0
+        self.button_stop = Button.error(
+            "stop", id="button-stop", classes="audio_button"
+        )
+        self.button_back = Button.warning(
+            "|<", id="button-back", classes="audio_button"
+        )
+        self.button_forward = Button.warning(
+            ">|", id="button-forward", classes="audio_button"
+        )
 
-        self.horizontal_container_button.styles.height = "3"
-        self.horizontal_container_button.styles.width = "28"
-        self.horizontal_container_slider.styles.height = "3"
-        self.horizontal_container_slider.styles.width = "39"
-        self.horizontal_container_button.styles.align = ("left", "top")
-        self.horizontal_container_slider.styles.align = ("left", "top")
-
-        self.time_display.styles.align = ("left", "middle")
-        self.time_display.styles.padding = 0
-        self.time_display.styles.margin = 0
-        self.slider_progress.styles.padding = 0
-        self.slider_progress.styles.margin = 0
-        # self.button_play.styles.padding = 0
-        # self.button_play.styles.margin = 0
-        # self.button_stop.styles.padding = 0
-        # self.button_stop.styles.margin = 0
-        # self.button_forward.styles.padding = 0
-        # self.button_forward.styles.margin = 0
-        # self.button_back.styles.padding = 0
-        # self.button_back.styles.margin = 0
         self.button_stop.disabled = True
         self.button_play.disabled = True
         self.button_forward.disabled = True
@@ -183,6 +173,9 @@ class AudioPlayerWidget(Container):
         self.horizontal_container_button.mount(self.button_stop)
         self.horizontal_container_button.mount(self.button_back)
         self.horizontal_container_button.mount(self.button_forward)
+        current_volume = get_system_volume()
+        self.slider_volume.value = int(current_volume * 100)
+        self.horizontal_container.mount(self.slider_volume)
 
     def render(self):
         """Render the progress bar with time information."""
@@ -193,8 +186,8 @@ class AudioPlayerWidget(Container):
 
         pb_p = self.button_play
         pb_s = self.button_stop
-
-        if "play" in pb_p.get_mode():
+        # if "play" in pb_p.get_mode():
+        if "play" in pb_p.label:
             # Start playback if not playing
             pygame.mixer.music.set_endevent(self.MUSIC_END_EVENT)
 
@@ -212,19 +205,24 @@ class AudioPlayerWidget(Container):
             self.song_length = self.get_song_length()
             self.start_progress_timer()
             self.update_components = True
-            pb_p.set_mode_idx("pause")
+            # pb_p.set_mode_idx("pause")
+            pb_p.label = "pause"
             pb_s.disabled = False
             self.is_paused = False
 
-        elif "pause" in pb_p.get_mode():
+        # elif "pause" in pb_p.get_mode():
+        elif "pause" in pb_p.label:
             pygame.mixer.music.pause()
             self.is_paused = True
-            pb_p.set_mode_idx("resume")
+            # pb_p.set_mode_idx("resume")
+            pb_p.label = "resume"
 
-        elif "resume" in pb_p.get_mode():
+        # elif "resume" in pb_p.get_mode():
+        elif "resume" in pb_p.label:
             pygame.mixer.music.unpause()
             self.is_paused = False
-            pb_p.set_mode_idx("pause")
+            # pb_p.set_mode_idx("pause")
+            pb_p.label = "pause"
 
     def remove_widgets(self):
         for widget in self.horizontal_container_slider.walk_children():
@@ -244,7 +242,8 @@ class AudioPlayerWidget(Container):
         self.update_components = True
 
         pb_p.disabled = False
-        pb_p.set_mode_idx("play")
+        # pb_p.set_mode_idx("play")
+        pb_p.label = "play"
         pb_s.disabled = True
         self.is_paused = False
         self.slider_progress.value = 0
@@ -276,6 +275,11 @@ class AudioPlayerWidget(Container):
         self.progress = 0
         self.elapsed_time = 0
         self.update_time(0, self.song_length)
+
+    @on(Slider.Changed, "#slider-volume")
+    def on_slider_volume_changed(self, event: Slider.Changed) -> None:
+        percentage = event.value / 100
+        set_system_volume(percentage)
 
     @on(Slider.Changed, "#slider-progress")
     def on_slider_changed_normal_amp(self, event: Slider.Changed) -> None:
@@ -323,6 +327,8 @@ class AudioPlayerWidget(Container):
             if pygame.mixer.music.get_busy() or self.is_paused:
                 self.stop_audio(remove_progress=False)
                 self.stop_progress_timer()
+                self.play_audio()
+            else:
                 self.play_audio()
         if self.current_song == 0:
             self.button_back.disabled = True

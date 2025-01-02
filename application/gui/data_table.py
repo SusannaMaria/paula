@@ -59,6 +59,11 @@ class TrackTableWidget(DataTable):
 
     def on_position_changed(self, value: int):
         self.cursor_coordinate = Coordinate(value, 0)
+        self.focus()
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected):
+
+        self.post_message(self.PositionChanged(event.cursor_row))
 
     def on_mouse_down(self, event: MouseDown):
         """Handle mouse events and detect double-clicks."""
