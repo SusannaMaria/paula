@@ -105,7 +105,7 @@ Screen {
 }   
 
 .horizontal_container_top {
-    margin: 0 0 0 0;
+    margin: 0 1 0 0;
     padding: 0 0;
     height:3;
 }
@@ -129,10 +129,33 @@ AudioPlayerWidget{
     margin: 0 0 0 0;
 }
 
+#slider-volume {
+    margin: 0 0 0 0;
+    width: 27;
+    height:1;
+    padding: 0 0;
+    align: center middle;
+}
+
 #horizontal_container_button {
     width: 32;
 }
 
 #horizontal_container_slider {
     width:39
+}
+
+#meta-label{
+    width: 100%;
+    height: 5;
+    content-align: left top;
+    color: white;
+    margin: 0 0 0 0;
+    box-sizing: border-box;
+    border: solid grey;
+    border-title-align: left;
+}
+
+.grey-label {
+     color: grey;
 }

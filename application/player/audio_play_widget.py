@@ -102,7 +102,7 @@ class AudioPlayerWidget(Container):
         self.elapsed_time = 0
         self.time_display = Static("0:00 / 0:00", id="time-display")
         self.slider_progress = Slider(min=0, max=100, value=0, id="slider-progress")
-        self.slider_volume = Slider(min=0, max=100, value=0, id="slider-volume")
+
         self.update_components = True
         self.task_ref = None
         self.horizontal_container = Horizontal()
@@ -173,9 +173,6 @@ class AudioPlayerWidget(Container):
         self.horizontal_container_button.mount(self.button_stop)
         self.horizontal_container_button.mount(self.button_back)
         self.horizontal_container_button.mount(self.button_forward)
-        current_volume = get_system_volume()
-        self.slider_volume.value = int(current_volume * 100)
-        self.horizontal_container.mount(self.slider_volume)
 
     def render(self):
         """Render the progress bar with time information."""
@@ -276,11 +273,6 @@ class AudioPlayerWidget(Container):
         self.elapsed_time = 0
         self.update_time(0, self.song_length)
 
-    @on(Slider.Changed, "#slider-volume")
-    def on_slider_volume_changed(self, event: Slider.Changed) -> None:
-        percentage = event.value / 100
-        set_system_volume(percentage)
-
     @on(Slider.Changed, "#slider-progress")
     def on_slider_changed_normal_amp(self, event: Slider.Changed) -> None:
         if pygame.mixer.music.get_busy() or self.is_paused:
@@ -340,11 +332,8 @@ class AudioPlayerWidget(Container):
         if self.current_song >= 0 and self.current_song < len(self.playlist) - 1:
             self.button_forward.disabled = False
 
-    async def on_custom_button_button_clicked(
-        self, message: CustomButton.ButtonClicked
-    ) -> None:
-
-        button_id = message.button_id
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        button_id = event.button.id
         if button_id == "button-play":
             self.play_audio()
         elif button_id == "button-stop":

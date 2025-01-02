@@ -36,7 +36,11 @@ from database.database_helper import (
     get_track_by_id,
     get_tracks_between_by_genre,
 )
-from player.audio_play_widget import AudioPlayerWidget
+from player.audio_play_widget import (
+    AudioPlayerWidget,
+    get_system_volume,
+    set_system_volume,
+)
 from textual import on
 from textual.app import ComposeResult, SystemCommand
 from textual.containers import Container, Grid, Horizontal, Vertical
@@ -45,6 +49,7 @@ from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Label, Log, Placeholder, Static
 from textual_image.widget import HalfcellImage, SixelImage, TGPImage, UnicodeImage
 from textual_image.widget import Image as AutoImage
+from textual_slider import Slider
 
 from gui.data_table import PlaylistWidget, TrackTableWidget
 from gui.events import CustomClickEvent
@@ -153,6 +158,9 @@ class PaulaScreen(Screen):
         self.cursor = create_cursor()
         self.log_controller = log_controller
         self.audio_player = AudioPlayerWidget(cursor=self.cursor, id="audio-player")
+        self.slider_volume = Slider(min=0, max=100, value=0, id="slider-volume")
+        current_volume = get_system_volume()
+        self.slider_volume.value = int(current_volume * 100)
 
     def update_image(self, image_path):
         image_widget = self.query_one("#cover-image")
@@ -248,13 +256,31 @@ class PaulaScreen(Screen):
                 Image = RENDERING_METHODS["auto"]
                 image_widget = Image(TEST_IMAGE, id="cover-image")
                 image_widget.styles.width = "100%"
-                image_widget.styles.height = "25%"
+                image_widget.styles.height = "30%"
                 image_widget.styles.align = ("right", "top")
                 image_widget.styles.padding = 0
                 image_widget.styles.margin = 0
                 # yield Container(self.image_container)
                 yield image_widget
+                meta_label = Label(self.show_song_metadata(1), id="meta-label")
+                meta_label.border_title = "meta data"
+                yield meta_label
+                yield Label(
+                    "\u250C\u2500 Volume \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510",
+                    classes="grey-label",
+                )
+                yield self.slider_volume
+                yield Label(
+                    "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518",
+                    classes="grey-label",
+                )
         yield Footer()
+
+    def show_song_metadata(self, track_id):
+        meta = ""
+        meta += f"Date: {1}\n"
+        meta += f"Genre: {1}\n"
+        return meta
 
     def show_album_tracks(self, album_id: int):
         global TEST_IMAGE
@@ -263,6 +289,11 @@ class PaulaScreen(Screen):
         cover_path = get_cover_by_album_id(self.cursor, album_id)
         if cover_path:
             self.update_image(cover_path)
+
+    @on(Slider.Changed, "#slider-volume")
+    def on_slider_volume_changed(self, event: Slider.Changed) -> None:
+        percentage = event.value / 100
+        set_system_volume(percentage)
 
     @on(AudioPlayerWidget.PositionChanged)
     def on_audio_player_postion_changed(
