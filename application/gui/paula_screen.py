@@ -247,8 +247,8 @@ class PaulaScreen(Screen):
             with Vertical(id="metadata"):
                 Image = RENDERING_METHODS["auto"]
                 image_widget = Image(TEST_IMAGE, id="cover-image")
-                image_widget.styles.width = Scalar.parse("26")
-                image_widget.styles.height = Scalar.parse("14")
+                image_widget.styles.width = "100%"
+                image_widget.styles.height = "25%"
                 image_widget.styles.align = ("right", "top")
                 image_widget.styles.padding = 0
                 image_widget.styles.margin = 0

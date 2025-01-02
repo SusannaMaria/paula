@@ -116,7 +116,7 @@ class AudioPlayerWidget(Container):
         self.horizontal_container_slider.styles.gap = 0
 
         self.horizontal_container_button.styles.height = "3"
-        self.horizontal_container_button.styles.width = "64"
+        self.horizontal_container_button.styles.width = "28"
         self.horizontal_container_slider.styles.height = "3"
         self.horizontal_container_slider.styles.width = "39"
         self.horizontal_container_button.styles.align = ("left", "top")

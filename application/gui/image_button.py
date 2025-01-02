@@ -1,3 +1,5 @@
+from time import sleep
+
 from PIL import Image
 from textual.app import App, ComposeResult
 from textual.containers import Container, Grid, Horizontal, Vertical
@@ -124,6 +126,7 @@ class CustomButton(Widget):
             for child in list(self.children):
                 child.remove()
             self.mount(mode["image_normal"])
+            sleep(0.5)
 
     def on_mouse_down(self, event: MouseDown):
         self.on_mount(event)
