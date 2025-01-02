@@ -2,7 +2,7 @@ from PIL import Image
 from textual.app import App, ComposeResult
 from textual.containers import Container, Grid, Horizontal, Vertical
 from textual.css.scalar import Scalar
-from textual.events import Click, MouseDown, MouseUp
+from textual.events import Click, Event, MouseDown, MouseUp
 from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import Static
@@ -16,6 +16,7 @@ RENDERING_METHODS = {
     "halfcell": HalfcellImage,
     "unicode": UnicodeImage,
 }
+MODES = {"play": "", "pause": "", "resume": ""}
 
 
 class CustomButton(Widget):
@@ -28,39 +29,67 @@ class CustomButton(Widget):
             self.sender = sender
             self.button_id = button_id
 
-    def __init__(self, path: str, id: str = None):
+    def __init__(self, id: str, path: str = None, modes=None):
         super().__init__(id=id)
-        self.button_id = id
-        self.image_icon_path = path
-        image_normal = self.overlay_image(self.image_icon_path)
-        image_pushed = self.overlay_image(self.image_icon_path, True)
-
-        Image = RENDERING_METHODS["auto"]
-        self.image_widget_normal = Image(image_normal, id="image_widget_normal")
-        self.image_widget_pushed = Image(image_pushed, id="image_widget_pushed")
-
         self.styles.width = Scalar.parse("7")
         self.styles.height = Scalar.parse("3")
-        self.image_widget_normal.styles.width = Scalar.parse("7")
-        self.image_widget_normal.styles.height = Scalar.parse("3")
-        self.image_widget_normal.styles.padding = 0
-        self.image_widget_normal.styles.margin = 0
+        self.button_id = id
+        if modes:
+            self.modes = modes
+        else:
+            self.modes = [{"id": f"{id}", "path": f"{path}"}]
 
-        self.image_widget_pushed.styles.width = Scalar.parse("7")
-        self.image_widget_pushed.styles.height = Scalar.parse("3")
-        self.image_widget_pushed.styles.padding = 0
-        self.image_widget_pushed.styles.margin = 0
+        self.mode_idx = 0
+
+        for mode in self.modes:
+
+            # self.button_id = id
+            # self.image_icon_path = path
+
+            image_normal = self.overlay_image(mode["path"])
+            image_pushed = self.overlay_image(mode["path"], True)
+
+            Image = RENDERING_METHODS["auto"]
+            image_widget_normal = Image(
+                image_normal, id=f'image_widget_normal_{mode["id"]}'
+            )
+            image_widget_pushed = Image(
+                image_pushed, id=f'image_widget_pushed_{mode["id"]}'
+            )
+
+            image_widget_normal.styles.width = Scalar.parse("7")
+            image_widget_normal.styles.height = Scalar.parse("3")
+            image_widget_normal.styles.padding = 0
+            image_widget_normal.styles.margin = 0
+
+            image_widget_pushed.styles.width = Scalar.parse("7")
+            image_widget_pushed.styles.height = Scalar.parse("3")
+            image_widget_pushed.styles.padding = 0
+            image_widget_pushed.styles.margin = 0
+            mode["image_pushed"] = image_widget_pushed
+            mode["image_normal"] = image_widget_normal
+
+    def set_mode_idx(self, id):
+        for index, mode in enumerate(self.modes):
+            if id in mode["id"]:
+                self.mode_idx = index
+                self.on_mount(Event())
+                return True
+        return False
+
+    def get_mode(self):
+        return self.modes[self.mode_idx]["id"]
 
     def overlay_image(self, icon_path, is_pushed=False):
         button_size = (255, 255)  # Width, Height
         icon_size = (180, 180)  # Width, Height
         if not is_pushed:
             background_path = (
-                "c:/Users/susan/paula/application/gui/images/button_normal.png"
+                "c:/Users/susan/paula/application/gui/images/button_dark_normal.png"
             )
         else:
             background_path = (
-                "c:/Users/susan/paula/application/gui/images/button_pushed.png"
+                "c:/Users/susan/paula/application/gui/images/button_dark_pushed.png"
             )
         background = Image.open(background_path).convert("RGBA").resize(button_size)
 
@@ -81,16 +110,20 @@ class CustomButton(Widget):
         return Image.alpha_composite(background, overlay)
 
     def on_mount(self, event):
+        mode = self.modes[self.mode_idx]
+
         if isinstance(event, MouseDown) and event.button == 1:
             for child in list(self.children):
                 child.remove()
-            self.mount(self.image_widget_pushed)
-        if isinstance(event, MouseUp) and event.button == 1:
+            self.mount(mode["image_pushed"])
+        elif isinstance(event, MouseUp) and event.button == 1:
             for child in list(self.children):
                 child.remove()
-            self.mount(self.image_widget_normal)
+            self.mount(mode["image_normal"])
         else:
-            self.mount(self.image_widget_normal)
+            for child in list(self.children):
+                child.remove()
+            self.mount(mode["image_normal"])
 
     def on_mouse_down(self, event: MouseDown):
         self.on_mount(event)

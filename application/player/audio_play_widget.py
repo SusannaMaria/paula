@@ -26,10 +26,13 @@
     THE SOFTWARE.
 """
 
+import io
 from pathlib import Path
 
 import mutagen
 import pygame
+from gui.image_button import CustomButton
+from pydub import AudioSegment
 from textual import on
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal
@@ -66,10 +69,38 @@ class AudioPlayerWidget(Container):
         self.horizontal_container = Horizontal()
         self.horizontal_container_button = Horizontal()
         self.horizontal_container_slider = Horizontal()
-        self.button_play = Button.success("play", id="button-play")
-        self.button_stop = Button.error("stop", id="button-stop")
-        self.button_back = Button.warning("back", id="button-back")
-        self.button_forward = Button.warning("forward", id="button-forward")
+        # self.button_play = Button.success("play", id="button-play")
+        # self.button_stop = Button.error("stop", id="button-stop")
+        # self.button_back = Button.warning("back", id="button-back")
+        # self.button_forward = Button.warning("forward", id="button-forward")
+
+        play_modes = [
+            {
+                "id": "button-play",
+                "path": "c:/Users/susan/paula/application/gui/images/music-play.png",
+            },
+            {
+                "id": "button-pause",
+                "path": "c:/Users/susan/paula/application/gui/images/music-pause.png",
+            },
+            {
+                "id": "button-resume",
+                "path": "c:/Users/susan/paula/application/gui/images/music-resume.png",
+            },
+        ]
+        self.button_play = CustomButton(id="button-play", modes=play_modes)
+        self.button_stop = CustomButton(
+            path="c:/Users/susan/paula/application/gui/images/music-stop.png",
+            id="button-stop",
+        )
+        self.button_back = CustomButton(
+            path="c:/Users/susan/paula/application/gui/images/backwards.png",
+            id="button-back",
+        )
+        self.button_forward = CustomButton(
+            path="c:/Users/susan/paula/application/gui/images/forwards.png",
+            id="button-forward",
+        )
         self.styles.width = "103"
         self.styles.height = "3"
         self.styles.align = ("left", "top")
@@ -96,14 +127,14 @@ class AudioPlayerWidget(Container):
         self.time_display.styles.margin = 0
         self.slider_progress.styles.padding = 0
         self.slider_progress.styles.margin = 0
-        self.button_play.styles.padding = 0
-        self.button_play.styles.margin = 0
-        self.button_stop.styles.padding = 0
-        self.button_stop.styles.margin = 0
-        self.button_forward.styles.padding = 0
-        self.button_forward.styles.margin = 0
-        self.button_back.styles.padding = 0
-        self.button_back.styles.margin = 0
+        # self.button_play.styles.padding = 0
+        # self.button_play.styles.margin = 0
+        # self.button_stop.styles.padding = 0
+        # self.button_stop.styles.margin = 0
+        # self.button_forward.styles.padding = 0
+        # self.button_forward.styles.margin = 0
+        # self.button_back.styles.padding = 0
+        # self.button_back.styles.margin = 0
         self.button_stop.disabled = True
         self.button_play.disabled = True
         self.button_forward.disabled = True
@@ -163,27 +194,37 @@ class AudioPlayerWidget(Container):
         pb_p = self.button_play
         pb_s = self.button_stop
 
-        if "play" in pb_p.label:
+        if "play" in pb_p.get_mode():
             # Start playback if not playing
             pygame.mixer.music.set_endevent(self.MUSIC_END_EVENT)
-            pygame.mixer.music.load(self.playlist[self.current_song])
+
+            if str(self.playlist[self.current_song]).lower().endswith(".m4a"):
+                audio = AudioSegment.from_file(
+                    self.playlist[self.current_song], format="m4a"
+                )
+                mp3_data = io.BytesIO()
+                audio.export(mp3_data, format="mp3")
+                mp3_data.seek(0)  # Rewind the BytesIO stream
+                pygame.mixer.music.load(mp3_data, "mp3")
+            else:
+                pygame.mixer.music.load(self.playlist[self.current_song])
             pygame.mixer.music.play()
             self.song_length = self.get_song_length()
             self.start_progress_timer()
             self.update_components = True
-            pb_p.label = "pause"
+            pb_p.set_mode_idx("pause")
             pb_s.disabled = False
             self.is_paused = False
 
-        elif "pause" in pb_p.label:
+        elif "pause" in pb_p.get_mode():
             pygame.mixer.music.pause()
             self.is_paused = True
-            pb_p.label = "resume"
+            pb_p.set_mode_idx("resume")
 
-        elif "resume" in pb_p.label:
+        elif "resume" in pb_p.get_mode():
             pygame.mixer.music.unpause()
             self.is_paused = False
-            pb_p.label = "pause"
+            pb_p.set_mode_idx("pause")
 
     def remove_widgets(self):
         for widget in self.horizontal_container_slider.walk_children():
@@ -203,7 +244,7 @@ class AudioPlayerWidget(Container):
         self.update_components = True
 
         pb_p.disabled = False
-        pb_p.label = "play"
+        pb_p.set_mode_idx("play")
         pb_s.disabled = True
         self.is_paused = False
         self.slider_progress.value = 0
@@ -293,8 +334,11 @@ class AudioPlayerWidget(Container):
         if self.current_song >= 0 and self.current_song < len(self.playlist) - 1:
             self.button_forward.disabled = False
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        button_id = event.button.id
+    async def on_custom_button_button_clicked(
+        self, message: CustomButton.ButtonClicked
+    ) -> None:
+
+        button_id = message.button_id
         if button_id == "button-play":
             self.play_audio()
         elif button_id == "button-stop":
