@@ -42,10 +42,12 @@ from player.audio_play_widget import (
     set_system_volume,
 )
 from textual import on
-from textual.app import ComposeResult, SystemCommand
+from textual.app import ComposeResult, RenderableType, SystemCommand
 from textual.containers import Container, Grid, Horizontal, Vertical
 from textual.css.scalar import Scalar
+from textual.events import Resize
 from textual.screen import ModalScreen, Screen
+from textual.widget import Widget
 from textual.widgets import Button, Footer, Label, Log, Placeholder, Static
 from textual_image.widget import HalfcellImage, SixelImage, TGPImage, UnicodeImage
 from textual_image.widget import Image as AutoImage
@@ -265,14 +267,15 @@ class PaulaScreen(Screen):
                 meta_label = Label(self.show_song_metadata(1), id="meta-label")
                 meta_label.border_title = "meta data"
                 yield meta_label
-                yield Label(
-                    "\u250C\u2500 Volume \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510",
-                    classes="grey-label",
+                yield BorderLabel(
+                    "Volume", classes="grey-label", id="border_top_volume", type="top"
                 )
                 yield self.slider_volume
-                yield Label(
-                    "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518",
+                yield BorderLabel(
+                    "",
                     classes="grey-label",
+                    id="border_bottom_volume",
+                    type="bottom",
                 )
         yield Footer()
 
@@ -308,3 +311,22 @@ class PaulaScreen(Screen):
     ) -> None:
         # Broadcast the message to all widgets
         self.query_one(AudioPlayerWidget).on_position_changed(message.value)
+
+
+class BorderLabel(Label):
+
+    def __init__(self, label, id, classes, type="top") -> None:
+        super().__init__()
+        self.label = label
+        self.id = id
+        self.classes = classes
+        self.type = type
+
+    def render(self) -> RenderableType:
+        line = "\u2500"
+        if "top" in self.type:
+            count = self.parent.size[0] - len(self.label) - 5
+            return "\u250C" + line + " " + self.label + " " + (count * line) + "\u2510"
+        else:
+            count = self.parent.size[0] - 2
+            return "\u2514" + (count * line) + "\u2518"
