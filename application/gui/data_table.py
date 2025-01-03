@@ -112,17 +112,117 @@ class TrackTableWidget(DataTable):
 class PlaylistWidget(DataTable):
     """A widget to display the playlist."""
 
-    def __init__(self, log_controller: LogController, **kwargs):
+    class PositionChanged(Message):
+        def __init__(self, value: str) -> None:
+            self.value = value  # The value to communicate
+            super().__init__()
+
+    class PlaylistChanged(Message):
+        def __init__(self, value: str) -> None:
+            self.value = value  # The value to communicate
+            super().__init__()
+
+    def __init__(self, cursor, log_controller: LogController, **kwargs):
         super().__init__(**kwargs)
-        self.add_column("ID", width=5)
-        self.add_column("Title", width=30)
-        self.add_column("Artist", width=30)
-        self.add_column("Album", width=30)
+        self.cursor = cursor
+        self.header = [
+            ("ID", 5),
+            ("Tracknumber", 5),
+            ("Title", 40),
+            ("Length", 5),
+            ("Album", 40),
+            ("Artist", 40),
+            ("Date", 10),
+        ]
+        for col in self.header:
+            self.add_column(col[0], key=col[0].lower(), width=col[1])
         self.log_controller = log_controller
+        self.current_sorts: set = set()
+        self.cursor_type = "row"
+        self.last_click_time = 0  # Track the time of the last mouse click
+        self.double_click_threshold = 0.3
+        self.playlist = []
 
     def clear_table(self):
         self.clear()
+        self.playlist = []
 
-    def add_track(self, track_id: int, title: str, artist: str, album: str):
+    def add_track(
+        self,
+        track_id: int,
+        track_number: str,
+        title: str,
+        length: str,
+        artist: str,
+        album: str,
+        release_date: str,
+        path: str,
+    ):
         """Add a track to the playlist."""
-        self.add_row(str(track_id), title, artist, album)
+        self.add_row(
+            str(track_id),
+            track_number,
+            title,
+            length,
+            album,
+            artist,
+            release_date.rstrip("-"),
+            key=f"{track_id}",
+        )
+
+    def insert_tracks_finished(self):
+        self.post_message(self.PlaylistChanged("new"))
+
+    def sort_reverse(self, sort_type: str):
+        """Determine if `sort_type` is ascending or descending."""
+        reverse = sort_type in self.current_sorts
+        if reverse:
+            self.current_sorts.remove(sort_type)
+        else:
+            self.current_sorts.add(sort_type)
+        return reverse
+
+    def on_data_table_header_selected(self, event: DataTable.HeaderSelected):
+
+        col = event.column_index
+        key = self.header[col][0].lower()
+
+        self.sort(
+            key,
+            reverse=self.sort_reverse(key),
+        )
+        self.post_message(self.PlaylistChanged("sorted"))
+
+    def on_position_changed(self, value: int):
+        self.cursor_coordinate = Coordinate(value, 0)
+        self.focus()
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected):
+
+        self.post_message(self.PositionChanged(event.cursor_row))
+
+    def on_mouse_down(self, event: MouseDown):
+        """Handle mouse events and detect double-clicks."""
+
+        current_time = time.time()
+        time_since_last_click = current_time - self.last_click_time
+
+        if event.button == 1:
+            if time_since_last_click <= self.double_click_threshold:
+                cursor_row = self.cursor_row
+                self.post_message(self.PositionChanged(cursor_row))
+            self.last_click_time = current_time
+
+    def get_playlist(self):
+        playlist = []
+
+        for row in self.rows:
+            path = get_audio_path_from_track_id(self.cursor, row.value)
+            playlist.append((row.value, path))
+        return playlist
+
+    def is_in_playlist(self, id):
+        for row in self.rows:
+            if row.value == id:
+                return True
+        return False

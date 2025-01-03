@@ -28,6 +28,7 @@
 
 import logging
 
+from database.database_helper import execute_query
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import (
@@ -57,6 +58,7 @@ class MusicDatabaseWidget(Container):
         self.on_album_selected = on_album_selected  # Callback for album selection
         self.original_data = {}  # Store metadata for filtering
         self.log_controller = log_controller
+        self.node_selected = None
 
     def compose(self) -> ComposeResult:
         """Compose the widget with a search bar and a Tree."""
@@ -100,6 +102,7 @@ class MusicDatabaseWidget(Container):
         for artist_id, artist_name in artists:
             artist_label = f"🎤 {artist_name}"
             artist_node = tree.root.add(artist_label, allow_expand=True)
+            artist_node.artist_id = artist_id
             self.original_data[artist_name.lower()] = {
                 "label": artist_label,
                 "allow_expand": True,
@@ -191,11 +194,33 @@ class MusicDatabaseWidget(Container):
                             f"Filtered Album Node Added: {data['label']}"
                         )
 
+    def expand_album_with_tracks(self, node):
+        print(node)
+        if len(node._children) > 0:
+            return
+        album_id = node.album_id
+        tracks = execute_query(
+            self.cursor,
+            "SELECT track_id, track_number, title FROM tracks WHERE album_id = ? ORDER BY CAST(SUBSTR(track_number, 1, INSTR(track_number, '/') - 1) AS INTEGER);",
+            (album_id,),
+            fetch_one=False,
+            fetch_all=True,
+        )
+
+        for track_id, track_number, title in tracks:
+            track_label = f"🎧 {track_number} - {title}"
+            track_node = node.add(track_label, allow_expand=False)
+            track_node.track_id = track_id  # Store album_id in the node
+        node.expand()
+
     async def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         """Handle node selection in the tree."""
         node = event.node
+        node.allow_expand = True
+        self.node_selected = node
         logging.debug(f"Node Selected: {node.label}")
         if hasattr(node, "album_id") and self.on_album_selected:
 
             self.log_controller.write(f"Album Selected: {node.album_id}")
-            self.on_album_selected(node.album_id)
+            # self.on_album_selected(node.album_id)
+            self.expand_album_with_tracks(node)

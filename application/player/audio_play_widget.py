@@ -39,7 +39,7 @@ from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from pydub import AudioSegment
 from textual import on
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal
+from textual.containers import Container, Horizontal, Vertical
 from textual.message import Message
 from textual.timer import Timer
 from textual.widgets import Button, Static
@@ -92,7 +92,7 @@ class AudioPlayerWidget(Container):
             self.value = value  # The value to communicate
             super().__init__()
 
-    def __init__(self, cursor, *args, **kwargs):
+    def __init__(self, cursor, playlist_provider, *args, **kwargs):
         super().__init__(*args, **kwargs)
         set_sounddevice()
         self.cursor = cursor
@@ -105,7 +105,7 @@ class AudioPlayerWidget(Container):
 
         self.update_components = True
         self.task_ref = None
-        self.horizontal_container = Horizontal()
+        self.vertical_container = Vertical()
         self.horizontal_container_button = Horizontal(
             classes="horizontal_container_top", id="horizontal_container_button"
         )
@@ -132,16 +132,19 @@ class AudioPlayerWidget(Container):
         self.playlist = []
         self.current_song = -1
         self.block_update = False
+        self.playlist_provider = playlist_provider
+        self.current_song_id = -1
 
-    def add_playlist(self, playlist):
+    def on_new_playlist(self, value):
+        playlist_provider = self.app.query_one(self.playlist_provider)
         self.playlist = []
-        for audio_file in playlist:
+        for audio_file in playlist_provider.get_playlist():
             self.add_audio_file(audio_file)
 
     def add_audio_file(self, audio_file=None, position="end"):
         if audio_file:
-            audio_file = Path(audio_file)
-            if audio_file.exists():
+            audio_file_path = Path(audio_file[1])
+            if audio_file_path.exists():
                 if "end" in position:
                     self.playlist.append(audio_file)
                 elif "top" in position:
@@ -151,6 +154,7 @@ class AudioPlayerWidget(Container):
             self.button_forward.disabled = False
             if self.current_song == -1:
                 self.current_song = 0
+                self.current_song_id = self.playlist[self.current_song][0]
 
     def update_time(self, current_seconds, total_seconds):
         """Update the time display."""
@@ -161,14 +165,14 @@ class AudioPlayerWidget(Container):
         )
 
         if self.update_components:
-            self.horizontal_container.mount(self.horizontal_container_slider)
+            self.vertical_container.mount(self.horizontal_container_slider)
             self.horizontal_container_slider.mount(self.slider_progress)
             self.horizontal_container_slider.mount(self.time_display)
             self.update_components = False
 
     async def on_mount(self, event):
-        self.mount(self.horizontal_container)
-        self.horizontal_container.mount(self.horizontal_container_button)
+        self.mount(self.vertical_container)
+        self.vertical_container.mount(self.horizontal_container_button)
         self.horizontal_container_button.mount(self.button_play)
         self.horizontal_container_button.mount(self.button_stop)
         self.horizontal_container_button.mount(self.button_back)
@@ -188,16 +192,16 @@ class AudioPlayerWidget(Container):
             # Start playback if not playing
             pygame.mixer.music.set_endevent(self.MUSIC_END_EVENT)
 
-            if str(self.playlist[self.current_song]).lower().endswith(".m4a"):
+            if str(self.playlist[self.current_song][1]).lower().endswith(".m4a"):
                 audio = AudioSegment.from_file(
-                    self.playlist[self.current_song], format="m4a"
+                    self.playlist[self.current_song][1], format="m4a"
                 )
                 mp3_data = io.BytesIO()
                 audio.export(mp3_data, format="mp3")
                 mp3_data.seek(0)  # Rewind the BytesIO stream
                 pygame.mixer.music.load(mp3_data, "mp3")
             else:
-                pygame.mixer.music.load(self.playlist[self.current_song])
+                pygame.mixer.music.load(self.playlist[self.current_song][1])
             pygame.mixer.music.play()
             self.song_length = self.get_song_length()
             self.start_progress_timer()
@@ -247,7 +251,7 @@ class AudioPlayerWidget(Container):
 
     def get_song_length(self):
         """Get the song length in seconds."""
-        audio = mutagen.File(self.playlist[self.current_song])
+        audio = mutagen.File(self.playlist[self.current_song][1])
         if audio and hasattr(audio.info, "length"):
             return audio.info.length  # Length in seconds
         else:

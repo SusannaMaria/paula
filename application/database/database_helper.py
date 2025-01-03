@@ -663,3 +663,47 @@ def update_track_tags(cursor, track_id, tags):
             "INSERT INTO track_tags (track_id, tag) VALUES (?, ?) ON CONFLICT DO NOTHING;",
             (track_id, tag),
         )
+
+
+def get_tracks_by_id(cursor, id, type):
+
+    if "artist_id" in type:
+        where_sql = "ar.artist_id = ?;"
+    elif "album_id" in type:
+        where_sql = "a.album_id = ?;"
+    elif "track_id" in type:
+        where_sql = "t.track_id = ?;"
+    else:
+        return
+    sql_query = f"""SELECT
+        t.track_id,
+        CASE
+            WHEN t.track_number LIKE '%/%' THEN t.track_number
+            ELSE t.track_number || '/' || (SELECT COUNT(*) FROM tracks WHERE album_id = t.album_id)
+        END AS track_number_formatted,
+        t.title AS track_title,
+        t.length,
+        t.year AS track_release_date,
+        t.path,
+        a.album_id,
+        a.name AS album_title,
+        a.release_date AS album_release_date,
+        ar.artist_id,
+        ar.name AS artist_name
+    FROM
+        tracks t
+    JOIN
+        albums a ON t.album_id = a.album_id
+    JOIN
+        artists ar ON a.artist_id = ar.artist_id
+    WHERE
+        {where_sql}"""
+
+    tracks = execute_query(
+        cursor,
+        sql_query.replace("\n", ""),
+        (int(id),),
+        fetch_one=False,
+        fetch_all=True,
+    )
+    return tracks

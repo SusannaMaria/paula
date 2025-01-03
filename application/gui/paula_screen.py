@@ -57,6 +57,7 @@ from gui.data_table import PlaylistWidget, TrackTableWidget
 from gui.events import CustomClickEvent
 from gui.log_controller import LogController
 from gui.music_database_widget import MusicDatabaseWidget
+from gui.tree_table_mover import TreeTableMoverWidget
 
 TEST_IMAGE = r"c:/temp/cover_d.jpg"
 
@@ -68,7 +69,12 @@ RENDERING_METHODS = {
     "unicode": UnicodeImage,
 }
 
-MANUAL_REFRESH = ["#border_top_volume", "#border_bottom_volume"]
+MANUAL_REFRESH = [
+    "#border_top_volume",
+    "#border_bottom_volume",
+    "#border_top_audioplayer",
+    "#border_bottom_audioplayer",
+]
 
 
 class SettingsScreen(Screen):
@@ -161,7 +167,9 @@ class PaulaScreen(Screen):
         super().__init__()
         self.cursor = create_cursor()
         self.log_controller = log_controller
-        self.audio_player = AudioPlayerWidget(cursor=self.cursor, id="audio-player")
+        self.audio_player = AudioPlayerWidget(
+            cursor=self.cursor, playlist_provider="#playlist_table", id="audio-player"
+        )
         self.slider_volume = Slider(min=0, max=100, value=0, id="slider-volume")
         current_volume = get_system_volume()
         self.slider_volume.value = int(current_volume * 100)
@@ -244,14 +252,19 @@ class PaulaScreen(Screen):
             )
             yield music_db
             with Vertical(id="tracklist"):
-                yield self.audio_player
+                tree_table_mover = TreeTableMoverWidget(
+                    cursor=self.cursor, id="tree_table_mover"
+                )
+                yield tree_table_mover
                 track_table = TrackTableWidget(
                     id="track_table", log_controller=self.log_controller
                 )
                 yield track_table
 
                 playlist = PlaylistWidget(
-                    id="playlist_table", log_controller=self.log_controller
+                    id="playlist_table",
+                    cursor=self.cursor,
+                    log_controller=self.log_controller,
                 )
                 self.track_table = track_table  # Store reference for updates
                 yield playlist
@@ -277,6 +290,19 @@ class PaulaScreen(Screen):
                     "",
                     classes="grey-label",
                     id="border_bottom_volume",
+                    type="bottom",
+                )
+                yield BorderLabel(
+                    "Audioplayer",
+                    classes="grey-label",
+                    id="border_top_audioplayer",
+                    type="top",
+                )
+                yield self.audio_player
+                yield BorderLabel(
+                    "",
+                    classes="grey-label",
+                    id="border_bottom_audioplayer",
                     type="bottom",
                 )
         yield Footer()
@@ -305,7 +331,7 @@ class PaulaScreen(Screen):
         self, message: AudioPlayerWidget.PositionChanged
     ) -> None:
         # Broadcast the message to all widgets
-        self.query_one(TrackTableWidget).on_position_changed(message.value)
+        self.query_one(PlaylistWidget).on_position_changed(message.value)
 
     @on(TrackTableWidget.PositionChanged)
     def on_track_table_postion_changed(
@@ -313,6 +339,20 @@ class PaulaScreen(Screen):
     ) -> None:
         # Broadcast the message to all widgets
         self.query_one(AudioPlayerWidget).on_position_changed(message.value)
+
+    @on(PlaylistWidget.PositionChanged)
+    def on_track_table_postion_changed(
+        self, message: PlaylistWidget.PositionChanged
+    ) -> None:
+        # Broadcast the message to all widgets
+        self.query_one(AudioPlayerWidget).on_position_changed(message.value)
+
+    @on(PlaylistWidget.PlaylistChanged)
+    def on_track_table_playlist_changed(
+        self, message: PlaylistWidget.PlaylistChanged
+    ) -> None:
+        # Broadcast the message to all widgets
+        self.query_one(AudioPlayerWidget).on_new_playlist(message.value)
 
     def _on_resize(self, event):
         super()._on_resize(event)

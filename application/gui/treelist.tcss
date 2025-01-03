@@ -16,7 +16,7 @@
 }
 
 #metadata {
-    width: 15%;
+    width: 36;
 }
 
 #feature-distribution {
@@ -104,6 +104,19 @@ Screen {
     color: black;
 }   
 
+
+.tree_table_button {
+    margin: 0 0 0 0;
+    min-width: 8;
+    padding: 0 0;
+    height: 1;
+    border: none;
+}
+.tree_table_button:hover {
+    background: darkgray;
+    color: black;
+}  
+
 .horizontal_container_top {
     margin: 0 1 0 0;
     padding: 0 0;
@@ -111,11 +124,9 @@ Screen {
 }
 
 AudioPlayerWidget{
-    width: 103;
-    height: 3;
+    height: 6;
     padding: 0 0;
-    margin: 0 0 0 0;
-    background: #333333
+    margin: 0 1 0 1;
 }
 
 #time-display {
@@ -127,11 +138,12 @@ AudioPlayerWidget{
 #slider-progress {
     padding: 0 0;
     margin: 0 0 0 0;
+    width: 26;
 }
 
 #slider-volume {
-    margin: 0 0 0 0;
-    width: 27;
+    margin: 0 1 0 1;
+    width: 34;
     height:1;
     padding: 0 0;
     align: center middle;
@@ -139,10 +151,13 @@ AudioPlayerWidget{
 
 #horizontal_container_button {
     width: 32;
+    align: center middle;
+    margin: 0 1 0 1;
 }
 
 #horizontal_container_slider {
-    width:39
+    width:32;
+    align: center middle;
 }
 
 #meta-label{
