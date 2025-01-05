@@ -483,9 +483,12 @@ def get_tracks_between_by_genre(cursor, genre, lower_bound, upper_bound):
 def get_track_by_id(cursor, track_id):
     SQL_QUERY = """SELECT 
             t.track_id AS track_id,
+            t.track_number AS track_number,
             t.title AS track_title, 
+            t.length AS length,
             a.name AS artist_name, 
             al.name AS album_name,
+            t.year AS release_date,
             t.path as title_path
 
         FROM 

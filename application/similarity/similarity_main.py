@@ -177,11 +177,13 @@ def precompute_features(cursor):
 
     logger.info("Update normalized_features")
     # Normalize and store features
-    for track in tracks:
+    length = len(tracks)
+    for index, track in enumerate(tracks, start=1):
+
         track_id = track[0]
         features = track[1:]
         normalized_features_vals = normalize_features(features, min_vals, max_vals)
-
+        print(f"{index}/{length}")
         execute_query(
             cursor,
             "UPDATE track_features SET normalized_features = ? WHERE track_id = ?;",

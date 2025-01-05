@@ -158,6 +158,8 @@ class PlaylistWidget(DataTable):
         release_date: str,
         path: str,
     ):
+        if release_date:
+            release_date = str(release_date).rstrip("-")
         """Add a track to the playlist."""
         self.add_row(
             str(track_id),
@@ -166,7 +168,7 @@ class PlaylistWidget(DataTable):
             length,
             album,
             artist,
-            release_date.rstrip("-"),
+            release_date,
             key=f"{track_id}",
         )
 

@@ -15,17 +15,23 @@ class TreeTableMoverWidget(Container):
         self.button_add_playlist = Button(
             "add to playlist", id="button-add-playlist", classes="tree_table_button"
         )
+        self.button_get_similar_tracks = Button(
+            "get similar tracks",
+            id="button-get-similar-tracks",
+            classes="tree_table_button",
+        )
 
     async def on_mount(self, event):
         self.mount(self.horizontal_container_button)
         self.horizontal_container_button.mount(self.button_add_playlist)
+        self.horizontal_container_button.mount(self.button_get_similar_tracks)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
+        music_panel = self.app.query_one("#music_panel")
+        playlist_table = self.app.query_one("#playlist_table")
+        node_selected = music_panel.node_selected
         if button_id == "button-add-playlist":
-            music_panel = self.app.query_one("#music_panel")
-            playlist_table = self.app.query_one("#playlist_table")
-            node_selected = music_panel.node_selected
 
             if hasattr(node_selected, "artist_id"):
                 id = node_selected.artist_id
@@ -38,34 +44,58 @@ class TreeTableMoverWidget(Container):
                 type_of = "track_id"
             else:
                 return
-            print()
 
-        tracks = get_tracks_by_id(self.cursor, id, type_of)
+            tracks = get_tracks_by_id(self.cursor, id, type_of)
 
-        playlist_table.clear_table()
+            playlist_table.clear_table()
 
-        for (
-            track_id,
-            track_number,
-            track_title,
-            length,
-            year,
-            path,
-            album_id,
-            album_title,
-            release_date,
-            artist_id,
-            artist_name,
-        ) in tracks:
-            path = get_audio_path_from_track_id(self.cursor, track_id)
-            playlist_table.add_track(
-                str(track_id),
+            for (
+                track_id,
                 track_number,
                 track_title,
                 length,
-                artist_name,
+                year,
+                path,
+                album_id,
                 album_title,
                 release_date,
-                path,
-            )
-        playlist_table.insert_tracks_finished()
+                artist_id,
+                artist_name,
+            ) in tracks:
+                path = get_audio_path_from_track_id(self.cursor, track_id)
+                playlist_table.add_track(
+                    str(track_id),
+                    track_number,
+                    track_title,
+                    length,
+                    artist_name,
+                    album_title,
+                    release_date,
+                    path,
+                )
+            playlist_table.insert_tracks_finished()
+
+        if button_id == "button-get-similar-tracks":
+            if hasattr(node_selected, "artist_id") or hasattr(
+                node_selected, "album_id"
+            ):
+                self.app.notify("Please select a track!", severity="error", timeout=2)
+                return
+            elif hasattr(node_selected, "track_id"):
+                id = node_selected.track_id
+                type_of = "track_id"
+            else:
+                return
+
+            # net = Network(height="750px", width="100%", notebook=False)
+            # max_recursion_level = 1
+
+            # track_similarity_processing(
+            #     net,
+            #     cursor,
+            #     file_paths,
+            #     track[0],
+            #     current_depth=0,
+            #     max_depth=max_recursion_level,
+            # )
+            # origin_track = track[0]

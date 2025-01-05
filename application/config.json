@@ -18,7 +18,7 @@
         "num_trees": 145,
         "feature_dim": 29
     },
-    "temp_dir": "/mnt/c/Users/susan/AppData/Local/Temp",
+    "temp_dir": "c:/Users/susan/AppData/Local/Temp",
     "player": "foobar2000",
     "extractor": {
         "threads": 6

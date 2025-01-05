@@ -219,10 +219,14 @@ class PaulaScreen(Screen):
                 track_row[1],
                 track_row[2],
                 track_row[3],
+                track_row[4],
+                track_row[5],
+                track_row[6],
+                track_row[7],
             )
-
+        plt.insert_tracks_finished()
         self.log_controller.write(f"{len(tracks)}")
-        close_connection()
+        # close_connection()
 
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
         yield from super().get_system_commands(screen)
