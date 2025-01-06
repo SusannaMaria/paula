@@ -159,6 +159,9 @@ class PlaylistWidget(DataTable):
         path: str,
         similarity: str = None,
     ):
+        track_num, total_tracks = track_number.split("/")
+        track_number = f"{int(track_num):02}/{total_tracks}"  # Add leading zero
+
         if release_date:
             release_date = str(release_date).rstrip("-")
         """Add a track to the playlist."""
