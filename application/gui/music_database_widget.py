@@ -80,7 +80,7 @@ class MusicDatabaseWidget(Container):
             with TabPane("Cornercases", id="tree_cornercases_tab"):
                 with RadioSet(id="radio_corner_cases"):
                     yield RadioButton("have no features", id="no_features")
-                yield Tree("Genre Tree", id="genre_tree")
+                yield Tree("Cornercase Tree", id="cornercase_tree")
 
     def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
         self.get_tracks_with_cornercases(event.pressed.id)
@@ -96,8 +96,11 @@ class MusicDatabaseWidget(Container):
     def get_tracks_with_cornercases(self, cornercase: str = "default_case"):
         if "no_features" in cornercase:
             sql_query = (
-                "SELECT t.track_id, t.track_number, t.title, t.album_id, t.artist_id "
-                "FROM tracks t LEFT JOIN track_features tf ON t.track_id = tf.track_id "
+                "SELECT t.track_id, t.track_number, t.title, t.album_id, albums.name, t.artist_id,artists.name "
+                "FROM tracks t "
+                "JOIN artists ON t.artist_id = artists.artist_id "
+                "JOIN albums ON t.album_id = albums.album_id "
+                "LEFT JOIN track_features tf ON t.track_id = tf.track_id "
                 "WHERE tf.track_id IS NULL;"
             )
             track_db_entries = execute_query(
@@ -106,8 +109,36 @@ class MusicDatabaseWidget(Container):
                 fetch_one=False,
                 fetch_all=True,
             )
+            tree = self.query_one("#cornercase_tree").root
+            self.clear_tree(tree)
+
             for track_db_entry in track_db_entries:
-                print(track_db_entry)
+                bfound = False
+                artist_node = None
+                for child in tree.children:
+                    if child.artist_id == track_db_entry[5]:
+                        bfound = True
+                        artist_node = child
+                        break
+                if not bfound:
+                    artist_label = f"🎤 {track_db_entry[6]}"
+                    artist_node = tree.add(artist_label, allow_expand=True)
+                    artist_node.artist_id = track_db_entry[5]
+                bfound = False
+                album_node = None
+                for child in artist_node.children:
+                    if child.album_id == track_db_entry[3]:
+                        bfound = True
+                        album_node = child
+                        break
+                if not bfound:
+                    album_label = f"📀 {track_db_entry[4]}"
+                    album_node = artist_node.add(album_label, allow_expand=True)
+                    album_node.album_id = track_db_entry[3]
+
+                track_label = f"🎧 {track_db_entry[1]} - {track_db_entry[2]}"
+                track_node = album_node.add(track_label, allow_expand=False)
+                track_node.track_id = track_db_entry[0]
 
     def on_mount(self) -> None:
         """Populate the tree and store the original data for filtering."""
