@@ -128,10 +128,10 @@ class PlaylistWidget(DataTable):
         self.header = [
             ("ID", 5),
             ("Tracknumber", 5),
-            ("Title", 40),
+            ("Title", 20),
             ("Length", 5),
-            ("Album", 40),
-            ("Artist", 40),
+            ("Album", 20),
+            ("Artist", 20),
             ("Date", 10),
         ]
         for col in self.header:
@@ -157,20 +157,34 @@ class PlaylistWidget(DataTable):
         album: str,
         release_date: str,
         path: str,
+        similarity: str = None,
     ):
         if release_date:
             release_date = str(release_date).rstrip("-")
         """Add a track to the playlist."""
-        self.add_row(
-            str(track_id),
-            track_number,
-            title,
-            length,
-            album,
-            artist,
-            release_date,
-            key=f"{track_id}",
-        )
+        if similarity is None:
+            self.add_row(
+                str(track_id),
+                track_number,
+                title,
+                length,
+                album,
+                artist,
+                release_date,
+                key=f"{track_id}",
+            )
+        else:
+            self.add_row(
+                str(track_id),
+                track_number,
+                title,
+                length,
+                album,
+                artist,
+                release_date,
+                similarity,
+                key=f"{track_id}",
+            )
 
     def insert_tracks_finished(self):
         self.post_message(self.PlaylistChanged("new"))

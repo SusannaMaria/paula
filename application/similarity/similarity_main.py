@@ -675,14 +675,7 @@ def track_similarity_processing(
         )
         return
 
-    features_json = execute_query(
-        cursor,
-        f"SELECT track_id, normalized_features FROM track_features WHERE track_id={track};",
-        fetch_one=True,
-        fetch_all=False,
-    )
-    track_features = json.loads(features_json[1])
-    similar_tracks = search_similar_tracks(track, track_features, 10)
+    similar_tracks = get_similar_tracks_by_id(cursor, track)
 
     main_track = get_track_by_id(cursor, track)
     if do_m3u:
@@ -713,6 +706,18 @@ def track_similarity_processing(
             do_m3u=False,
         )
     network_similarity(net, similar_tracks)
+
+
+def get_similar_tracks_by_id(cursor, track):
+    features_json = execute_query(
+        cursor,
+        f"SELECT track_id, normalized_features FROM track_features WHERE track_id={track};",
+        fetch_one=True,
+        fetch_all=False,
+    )
+    track_features = json.loads(features_json[1])
+    similar_tracks = search_similar_tracks(track, track_features, 10)
+    return similar_tracks
 
 
 def prepare_feedback(cursor, origin_track_id):

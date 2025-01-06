@@ -1,4 +1,5 @@
 from database.database_helper import get_tracks_by_id
+from similarity.similarity_main import get_similar_tracks_by_id
 from textual.containers import Container, Horizontal
 from textual.widgets import Button
 from updater.updater_main import get_audio_path_from_track_id
@@ -20,6 +21,7 @@ class TreeTableMoverWidget(Container):
             id="button-get-similar-tracks",
             classes="tree_table_button",
         )
+        self.cursor = cursor
 
     async def on_mount(self, event):
         self.mount(self.horizontal_container_button)
@@ -46,6 +48,12 @@ class TreeTableMoverWidget(Container):
                 return
 
             tracks = get_tracks_by_id(self.cursor, id, type_of)
+
+            for col in playlist_table.columns:
+                if "delta" in col.value:
+                    playlist_table.remove_column("delta")
+                    del playlist_table.header[-1]
+                    break
 
             playlist_table.clear_table()
 
@@ -87,15 +95,28 @@ class TreeTableMoverWidget(Container):
             else:
                 return
 
-            # net = Network(height="750px", width="100%", notebook=False)
-            # max_recursion_level = 1
-
-            # track_similarity_processing(
-            #     net,
-            #     cursor,
-            #     file_paths,
-            #     track[0],
-            #     current_depth=0,
-            #     max_depth=max_recursion_level,
-            # )
-            # origin_track = track[0]
+            colfound = False
+            for col in playlist_table.columns:
+                if "delta" in col.value:
+                    colfound = True
+            if not colfound:
+                playlist_table.add_column("Delta", width=5, key="delta")
+                playlist_table.header.append(("Delta", 5))
+            playlist_table.clear_table()
+            similar_tracks = get_similar_tracks_by_id(self.cursor, id)
+            similar_tracks.insert(0, (id, 0.0))
+            for sim_tracks in similar_tracks:
+                track = get_tracks_by_id(self.cursor, sim_tracks[0], "track_id")[0]
+                path = get_audio_path_from_track_id(self.cursor, track[0])
+                playlist_table.add_track(
+                    str(track[0]),  # track_id
+                    track[1],  # track_number
+                    track[2],  # track_title
+                    track[3],  # length
+                    track[10],  # artist_name
+                    track[7],  # album_title
+                    track[8],  # release_date
+                    path,
+                    sim_tracks[1],
+                )
+            playlist_table.insert_tracks_finished()

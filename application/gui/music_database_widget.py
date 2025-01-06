@@ -216,11 +216,10 @@ class MusicDatabaseWidget(Container):
     async def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         """Handle node selection in the tree."""
         node = event.node
-        node.allow_expand = True
-        self.node_selected = node
         logging.debug(f"Node Selected: {node.label}")
         if hasattr(node, "album_id") and self.on_album_selected:
-
+            node.allow_expand = True
+            self.node_selected = node
             self.log_controller.write(f"Album Selected: {node.album_id}")
             # self.on_album_selected(node.album_id)
             self.expand_album_with_tracks(node)
