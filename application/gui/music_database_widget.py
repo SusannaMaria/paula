@@ -33,6 +33,8 @@ from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import (
     Input,
+    RadioButton,
+    RadioSet,
     TabbedContent,
     TabPane,
     Tabs,
@@ -75,6 +77,13 @@ class MusicDatabaseWidget(Container):
             with TabPane("Genres->Artists", id="tree_genres_artists_tab"):
                 yield GenreSliders(id="genre_slider")
                 yield Tree("Genre Tree", id="genre_tree")
+            with TabPane("Cornercases", id="tree_cornercases_tab"):
+                with RadioSet(id="radio_corner_cases"):
+                    yield RadioButton("have no features", id="no_features")
+                yield Tree("Genre Tree", id="genre_tree")
+
+    def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
+        self.get_tracks_with_cornercases(event.pressed.id)
 
     def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
         """Handle TabActivated message sent by Tabs."""
@@ -84,10 +93,36 @@ class MusicDatabaseWidget(Container):
         elif event.tab.id == "tree_genres_tab":
             self.log_controller.write("Genres Tab")
 
+    def get_tracks_with_cornercases(self, cornercase: str = "default_case"):
+        if "no_features" in cornercase:
+            sql_query = (
+                "SELECT t.track_id, t.track_number, t.title, t.album_id, t.artist_id "
+                "FROM tracks t LEFT JOIN track_features tf ON t.track_id = tf.track_id "
+                "WHERE tf.track_id IS NULL;"
+            )
+            track_db_entries = execute_query(
+                self.cursor,
+                sql_query,
+                fetch_one=False,
+                fetch_all=True,
+            )
+            for track_db_entry in track_db_entries:
+                print(track_db_entry)
+
     def on_mount(self) -> None:
         """Populate the tree and store the original data for filtering."""
         tree = self.query(Tree).first()  # Get the first Tree widget
         self.populate_tree(tree)
+
+    def add_track_in_tree(self, tree, track_id):
+        track_db_entry = execute_query(
+            self.cursor,
+            "SELECT track_id, track_number, title, album_id, artist_id FROM tracks WHERE track_id = ?;",
+            (track_id,),
+            fetch_one=True,
+            fetch_all=False,
+        )
+        print(track_db_entry)
 
     def populate_tree(self, tree: Tree) -> None:
         """Populate the tree with database content and store metadata."""
