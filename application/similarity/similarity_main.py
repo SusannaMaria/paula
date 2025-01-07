@@ -1,15 +1,44 @@
+"""
+    Title: Music Collection Manager
+    Description: A Python application to manage and enhance a personal music collection.
+    Author: Susanna
+    License: MIT License
+    Created: 2025
+
+    Copyright (c) 2025 Susanna Maria Hepp
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+"""
+
 import curses
 import json
 import logging
-from pathlib import Path
-import sqlite3
-import numpy as np
 import os
-from similarity.train_weights import train_feature_weights
-from similarity.similarity_feedback import display_tracks_and_collect_feedback
-from similarity.html_utils import inject_context_menu
-from search.search_main import create_search_query
-from utils.config_loader import load_config, update_weight_config
+import sqlite3
+import subprocess
+from collections import defaultdict
+from multiprocessing import Lock, Pool, Value
+from pathlib import Path
+
+import numpy as np
+from annoy import AnnoyIndex
+from colorama import Fore, Style, init
 from database.database_helper import (
     close_connection,
     close_cursor,
@@ -19,14 +48,11 @@ from database.database_helper import (
     get_track_by_id,
 )
 from pyvis.network import Network
-import networkx as nx
-from annoy import AnnoyIndex
-import numpy as np
 from scipy.spatial.distance import cosine
-from collections import defaultdict
-from multiprocessing import Pool, Value, Lock
-from colorama import Fore, Style, init
-import subprocess
+from search.search_main import create_search_query
+from similarity.similarity_feedback import display_tracks_and_collect_feedback
+from similarity.train_weights import train_feature_weights
+from utils.config_loader import load_config, update_weight_config
 
 init(autoreset=True)
 
@@ -151,11 +177,13 @@ def precompute_features(cursor):
 
     logger.info("Update normalized_features")
     # Normalize and store features
-    for track in tracks:
+    length = len(tracks)
+    for index, track in enumerate(tracks, start=1):
+
         track_id = track[0]
         features = track[1:]
         normalized_features_vals = normalize_features(features, min_vals, max_vals)
-
+        print(f"{index}/{length}")
         execute_query(
             cursor,
             "UPDATE track_features SET normalized_features = ? WHERE track_id = ?;",
@@ -647,14 +675,7 @@ def track_similarity_processing(
         )
         return
 
-    features_json = execute_query(
-        cursor,
-        f"SELECT track_id, normalized_features FROM track_features WHERE track_id={track};",
-        fetch_one=True,
-        fetch_all=False,
-    )
-    track_features = json.loads(features_json[1])
-    similar_tracks = search_similar_tracks(track, track_features, 10)
+    similar_tracks = get_similar_tracks_by_id(cursor, track)
 
     main_track = get_track_by_id(cursor, track)
     if do_m3u:
@@ -685,6 +706,18 @@ def track_similarity_processing(
             do_m3u=False,
         )
     network_similarity(net, similar_tracks)
+
+
+def get_similar_tracks_by_id(cursor, track):
+    features_json = execute_query(
+        cursor,
+        f"SELECT track_id, normalized_features FROM track_features WHERE track_id={track};",
+        fetch_one=True,
+        fetch_all=False,
+    )
+    track_features = json.loads(features_json[1])
+    similar_tracks = search_similar_tracks(track, track_features, 10)
+    return similar_tracks
 
 
 def prepare_feedback(cursor, origin_track_id):

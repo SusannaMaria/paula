@@ -3,9 +3,9 @@
     Description: A Python application to manage and enhance a personal music collection.
     Author: Susanna
     License: MIT License
-    Created: 2024
+    Created: 2025
 
-    Copyright (c) 2024 Susanna Maria Hepp
+    Copyright (c) 2025 Susanna Maria Hepp
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -26,15 +26,15 @@
     THE SOFTWARE.
 """
 
-from pathlib import Path
-import sys
-from utils.config_loader import load_config
 import logging
 import os
-import subprocess
-import os
-from datetime import datetime
 import sqlite3
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+from utils.config_loader import load_config
 
 logger = logging.getLogger(__name__)
 conn = None
@@ -483,9 +483,12 @@ def get_tracks_between_by_genre(cursor, genre, lower_bound, upper_bound):
 def get_track_by_id(cursor, track_id):
     SQL_QUERY = """SELECT 
             t.track_id AS track_id,
+            t.track_number AS track_number,
             t.title AS track_title, 
+            t.length AS length,
             a.name AS artist_name, 
             al.name AS album_name,
+            t.year AS release_date,
             t.path as title_path
 
         FROM 
@@ -663,3 +666,47 @@ def update_track_tags(cursor, track_id, tags):
             "INSERT INTO track_tags (track_id, tag) VALUES (?, ?) ON CONFLICT DO NOTHING;",
             (track_id, tag),
         )
+
+
+def get_tracks_by_id(cursor, id, type):
+
+    if "artist_id" in type:
+        where_sql = "ar.artist_id = ?;"
+    elif "album_id" in type:
+        where_sql = "a.album_id = ?;"
+    elif "track_id" in type:
+        where_sql = "t.track_id = ?;"
+    else:
+        return
+    sql_query = f"""SELECT
+        t.track_id,
+        CASE
+            WHEN t.track_number LIKE '%/%' THEN t.track_number
+            ELSE t.track_number || '/' || (SELECT COUNT(*) FROM tracks WHERE album_id = t.album_id)
+        END AS track_number_formatted,
+        t.title AS track_title,
+        t.length,
+        t.year AS track_release_date,
+        t.path,
+        a.album_id,
+        a.name AS album_title,
+        a.release_date AS album_release_date,
+        ar.artist_id,
+        ar.name AS artist_name
+    FROM
+        tracks t
+    JOIN
+        albums a ON t.album_id = a.album_id
+    JOIN
+        artists ar ON a.artist_id = ar.artist_id
+    WHERE
+        {where_sql}"""
+
+    tracks = execute_query(
+        cursor,
+        sql_query.replace("\n", ""),
+        (int(id),),
+        fetch_one=False,
+        fetch_all=True,
+    )
+    return tracks

@@ -3,9 +3,9 @@
     Description: A Python application to manage and enhance a personal music collection.
     Author: Susanna
     License: MIT License
-    Created: 2024
+    Created: 2025
 
-    Copyright (c) 2024 Susanna Maria Hepp
+    Copyright (c) 2025 Susanna Maria Hepp
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -26,10 +26,11 @@
     THE SOFTWARE.
 """
 
-import re
-from utils.config_loader import load_config
-from database.database_helper import execute_query_print_out
 import logging
+import re
+
+from database.database_helper import execute_query_print_out
+from utils.config_loader import load_config
 
 logger = logging.getLogger(__name__)
 # Load configuration

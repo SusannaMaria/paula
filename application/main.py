@@ -4,9 +4,9 @@
     Description: A Python application to manage and enhance a personal music collection.
     Author: Susanna
     License: MIT License
-    Created: 2024
+    Created: 2025
 
-    Copyright (c) 2024 Susanna Maria Hepp
+    Copyright (c) 2025 Susanna Maria Hepp
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -27,30 +27,31 @@
     THE SOFTWARE.
 """
 
+
 import sys
 
 from database.genre import collect_genres
-from updater.updater_audio_files import update_database_with_audiofiles
 from gui.treelist import MusicDatabaseApp
 from similarity.similarity_main import run_similarity
+from updater.updater_audio_files import update_database_with_audiofiles
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
 import argparse
-from importer.importer_main import run_import
+import logging
+
+from cover.cover_main import create_mosaic, get_album_covers
 from database.database_helper import (
     backup_database,
     clean_tables,
     close_connection,
     restore_database,
 )
-from utils.logging_config import setup_logging
-import logging
-
-from updater.updater_main import extract_features, run_updater
+from importer.importer_main import run_import
 from search.search_main import run_search
-from cover.cover_main import create_mosaic, get_album_covers
+from updater.updater_main import extract_features, run_updater
+from utils.logging_config import setup_logging
 
 
 def main():

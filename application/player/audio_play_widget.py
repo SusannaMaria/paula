@@ -1,19 +1,85 @@
-import asyncio
-import math
-from pathlib import Path
-from typing import List
+"""
+    Title: Music Collection Manager
+    Description: A Python application to manage and enhance a personal music collection.
+    Author: Susanna
+    License: MIT License
+    Created: 2025
 
-from textual.app import App, ComposeResult
-from textual.containers import Vertical, Horizontal, Container
-from textual.widgets import Button, Static
-import pygame
-from textual.timer import Timer
+    Copyright (c) 2025 Susanna Maria Hepp
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+"""
+
+import ctypes
+import io
+from ctypes import POINTER, cast
+from pathlib import Path
+
 import mutagen
-from textual_slider import Slider
+import pygame
+from comtypes import CLSCTX_ALL
+from gui.image_button import CustomButton
+from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+from pydub import AudioSegment
 from textual import on
-from textual.events import MouseDown, MouseUp
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal, Vertical
 from textual.message import Message
-from typing import TYPE_CHECKING
+from textual.timer import Timer
+from textual.widgets import Button, Static
+from textual_slider import Slider
+
+from player.device import set_sounddevice
+
+# Constants
+DEVICE_SPEAKERS = 0  # Master audio device
+VOLUME_MIN = 0
+VOLUME_MAX = 65535
+winmm = ctypes.WinDLL("winmm.dll")
+
+
+def set_system_volume(level: float):
+    """
+    Set the system audio volume.
+
+    :param level: Volume level as a float between 0.0 (mute) and 1.0 (max volume)
+    """
+    devices = AudioUtilities.GetSpeakers()
+    interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+    volume = cast(interface, POINTER(IAudioEndpointVolume))
+    volume.SetMasterVolumeLevelScalar(level, None)
+
+
+def get_system_volume():
+    """
+    Get the current system audio volume as a float between 0.0 and 1.0.
+
+    :return: Current system volume as a float
+    """
+    # Get the default audio output device
+    devices = AudioUtilities.GetSpeakers()
+    interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+    volume = cast(interface, POINTER(IAudioEndpointVolume))
+
+    # Get the volume level as a scalar (0.0 to 1.0)
+    current_volume = volume.GetMasterVolumeLevelScalar()
+    return current_volume
 
 
 class AudioPlayerWidget(Container):
@@ -26,9 +92,9 @@ class AudioPlayerWidget(Container):
             self.value = value  # The value to communicate
             super().__init__()
 
-    def __init__(self, cursor, *args, **kwargs):
+    def __init__(self, cursor, playlist_provider, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        pygame.mixer.init()
+        set_sounddevice()
         self.cursor = cursor
         self.is_paused = False
         self.song_length = 0  # Length of the song in seconds
@@ -36,49 +102,29 @@ class AudioPlayerWidget(Container):
         self.elapsed_time = 0
         self.time_display = Static("0:00 / 0:00", id="time-display")
         self.slider_progress = Slider(min=0, max=100, value=0, id="slider-progress")
+
         self.update_components = True
         self.task_ref = None
-        self.horizontal_container = Horizontal()
-        self.horizontal_container_button = Horizontal()
-        self.horizontal_container_slider = Horizontal()
-        self.button_play = Button.success("play", id="button-play")
-        self.button_stop = Button.error("stop", id="button-stop")
-        self.button_back = Button.warning("back", id="button-back")
-        self.button_forward = Button.warning("forward", id="button-forward")
-        self.styles.width = "103"
-        self.styles.height = "3"
-        self.styles.align = ("left", "top")
-        self.styles.padding = 0
-        self.styles.margin = 0
-        self.styles.gap = 0
-        self.styles.background = "#333333"
-        self.horizontal_container_button.styles.padding = 0
-        self.horizontal_container_button.styles.margin = 0
-        self.horizontal_container_button.styles.gap = 0
-        self.horizontal_container_slider.styles.padding = 0
-        self.horizontal_container_slider.styles.margin = 0
-        self.horizontal_container_slider.styles.gap = 0
+        self.vertical_container = Vertical()
+        self.horizontal_container_button = Horizontal(
+            classes="horizontal_container_top", id="horizontal_container_button"
+        )
+        self.horizontal_container_slider = Horizontal(
+            classes="horizontal_container_top", id="horizontal_container_slider"
+        )
+        self.button_play = Button.success(
+            "play", id="button-play", classes="audio_button"
+        )
+        self.button_stop = Button.error(
+            "stop", id="button-stop", classes="audio_button"
+        )
+        self.button_back = Button.warning(
+            "|<", id="button-back", classes="audio_button"
+        )
+        self.button_forward = Button.warning(
+            ">|", id="button-forward", classes="audio_button"
+        )
 
-        self.horizontal_container_button.styles.height = "3"
-        self.horizontal_container_button.styles.width = "64"
-        self.horizontal_container_slider.styles.height = "3"
-        self.horizontal_container_slider.styles.width = "39"
-        self.horizontal_container_button.styles.align = ("left", "top")
-        self.horizontal_container_slider.styles.align = ("left", "top")
-
-        self.time_display.styles.align = ("left", "middle")
-        self.time_display.styles.padding = 0
-        self.time_display.styles.margin = 0
-        self.slider_progress.styles.padding = 0
-        self.slider_progress.styles.margin = 0
-        self.button_play.styles.padding = 0
-        self.button_play.styles.margin = 0
-        self.button_stop.styles.padding = 0
-        self.button_stop.styles.margin = 0
-        self.button_forward.styles.padding = 0
-        self.button_forward.styles.margin = 0
-        self.button_back.styles.padding = 0
-        self.button_back.styles.margin = 0
         self.button_stop.disabled = True
         self.button_play.disabled = True
         self.button_forward.disabled = True
@@ -86,16 +132,19 @@ class AudioPlayerWidget(Container):
         self.playlist = []
         self.current_song = -1
         self.block_update = False
+        self.playlist_provider = playlist_provider
+        self.current_song_id = -1
 
-    def add_playlist(self, playlist):
+    def on_new_playlist(self, value):
+        playlist_provider = self.app.query_one(self.playlist_provider)
         self.playlist = []
-        for audio_file in playlist:
+        for audio_file in playlist_provider.get_playlist():
             self.add_audio_file(audio_file)
 
     def add_audio_file(self, audio_file=None, position="end"):
         if audio_file:
-            audio_file = Path(audio_file)
-            if audio_file.exists():
+            audio_file_path = Path(audio_file[1])
+            if audio_file_path.exists():
                 if "end" in position:
                     self.playlist.append(audio_file)
                 elif "top" in position:
@@ -105,6 +154,7 @@ class AudioPlayerWidget(Container):
             self.button_forward.disabled = False
             if self.current_song == -1:
                 self.current_song = 0
+                self.current_song_id = self.playlist[self.current_song][0]
 
     def update_time(self, current_seconds, total_seconds):
         """Update the time display."""
@@ -115,14 +165,14 @@ class AudioPlayerWidget(Container):
         )
 
         if self.update_components:
-            self.horizontal_container.mount(self.horizontal_container_slider)
+            self.vertical_container.mount(self.horizontal_container_slider)
             self.horizontal_container_slider.mount(self.slider_progress)
             self.horizontal_container_slider.mount(self.time_display)
             self.update_components = False
 
     async def on_mount(self, event):
-        self.mount(self.horizontal_container)
-        self.horizontal_container.mount(self.horizontal_container_button)
+        self.mount(self.vertical_container)
+        self.vertical_container.mount(self.horizontal_container_button)
         self.horizontal_container_button.mount(self.button_play)
         self.horizontal_container_button.mount(self.button_stop)
         self.horizontal_container_button.mount(self.button_back)
@@ -137,27 +187,42 @@ class AudioPlayerWidget(Container):
 
         pb_p = self.button_play
         pb_s = self.button_stop
-
+        # if "play" in pb_p.get_mode():
         if "play" in pb_p.label:
             # Start playback if not playing
             pygame.mixer.music.set_endevent(self.MUSIC_END_EVENT)
-            pygame.mixer.music.load(self.playlist[self.current_song])
+
+            if str(self.playlist[self.current_song][1]).lower().endswith(".m4a"):
+                audio = AudioSegment.from_file(
+                    self.playlist[self.current_song][1], format="m4a"
+                )
+                mp3_data = io.BytesIO()
+                audio.export(mp3_data, format="mp3")
+                mp3_data.seek(0)  # Rewind the BytesIO stream
+                pygame.mixer.music.load(mp3_data, "mp3")
+            else:
+                pygame.mixer.music.load(self.playlist[self.current_song][1])
             pygame.mixer.music.play()
             self.song_length = self.get_song_length()
             self.start_progress_timer()
             self.update_components = True
+            # pb_p.set_mode_idx("pause")
             pb_p.label = "pause"
             pb_s.disabled = False
             self.is_paused = False
 
+        # elif "pause" in pb_p.get_mode():
         elif "pause" in pb_p.label:
             pygame.mixer.music.pause()
             self.is_paused = True
+            # pb_p.set_mode_idx("resume")
             pb_p.label = "resume"
 
+        # elif "resume" in pb_p.get_mode():
         elif "resume" in pb_p.label:
             pygame.mixer.music.unpause()
             self.is_paused = False
+            # pb_p.set_mode_idx("pause")
             pb_p.label = "pause"
 
     def remove_widgets(self):
@@ -178,6 +243,7 @@ class AudioPlayerWidget(Container):
         self.update_components = True
 
         pb_p.disabled = False
+        # pb_p.set_mode_idx("play")
         pb_p.label = "play"
         pb_s.disabled = True
         self.is_paused = False
@@ -185,7 +251,7 @@ class AudioPlayerWidget(Container):
 
     def get_song_length(self):
         """Get the song length in seconds."""
-        audio = mutagen.File(self.playlist[self.current_song])
+        audio = mutagen.File(self.playlist[self.current_song][1])
         if audio and hasattr(audio.info, "length"):
             return audio.info.length  # Length in seconds
         else:
@@ -257,6 +323,8 @@ class AudioPlayerWidget(Container):
             if pygame.mixer.music.get_busy() or self.is_paused:
                 self.stop_audio(remove_progress=False)
                 self.stop_progress_timer()
+                self.play_audio()
+            else:
                 self.play_audio()
         if self.current_song == 0:
             self.button_back.disabled = True
