@@ -2,7 +2,7 @@
 
 Das ist Paula, es soll mal etwas werden, das ich zeigen kann, aber eigentlich will, das es irgendwie entdeckt wird und für nutzvoll gefunden wird.
 
-Eine Musikdatenbank mit komischen Kram wie Ähnlichkeitsanalyse um in meinen 3000 Alben und 30000 Songs, die ich als Audiofiles über ein Lebenlang gekauft, wieder zu finden. 
+Eine Musikdatenbank mit komischen Kram wie Ähnlichkeitsanalyse um in meinen 3000 Alben und 30000 Songs, die ich als Audiofiles über ein Lebenlang gekauft habe, etwas wieder zu finden was mich beweogen hat es zu lieben. 
 
 Hört auf euch zu hassen und hört lieber Musik. 
 
