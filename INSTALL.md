@@ -1,4 +1,4 @@
-#Install
+# Install
 * Install miniconda
   https://docs.anaconda.com/miniconda/install/
 * clone repo
@@ -7,5 +7,5 @@
 * add `conda activate paula` to your shell environment
 
 
-#Remove
-conda env remove -n paula
+# Remove
+* `conda env remove -n paula` 
