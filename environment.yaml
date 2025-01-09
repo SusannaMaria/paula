@@ -18,8 +18,7 @@ dependencies:
       - pydub
       - pyvis
       - plotly
-      - rich
       - textual-image[textual]
       - textual-dev
       - pygame
-      - windows-curses
+      
