@@ -35,15 +35,15 @@ class TreeTableMoverWidget(Container):
         node_selected = music_panel.node_selected
         if button_id == "button-add-playlist":
 
-            if hasattr(node_selected, "artist_id"):
+            if hasattr(node_selected, "track_id"):
+                id = node_selected.track_id
+                type_of = "track_id"
+            elif hasattr(node_selected, "artist_id"):
                 id = node_selected.artist_id
                 type_of = "artist_id"
             elif hasattr(node_selected, "album_id"):
                 id = node_selected.album_id
                 type_of = "album_id"
-            elif hasattr(node_selected, "track_id"):
-                id = node_selected.track_id
-                type_of = "track_id"
             else:
                 return
 
@@ -84,9 +84,7 @@ class TreeTableMoverWidget(Container):
             playlist_table.insert_tracks_finished()
 
         if button_id == "button-get-similar-tracks":
-            if hasattr(node_selected, "artist_id") or hasattr(
-                node_selected, "album_id"
-            ):
+            if not hasattr(node_selected, "track_id"):
                 self.app.notify("Please select a track!", severity="error", timeout=2)
                 return
             elif hasattr(node_selected, "track_id"):

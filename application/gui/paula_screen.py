@@ -59,7 +59,7 @@ from gui.log_controller import LogController
 from gui.music_database_widget import MusicDatabaseWidget
 from gui.tree_table_mover import TreeTableMoverWidget
 
-TEST_IMAGE = r"c:/temp/cover_d.jpg"
+TEST_IMAGE = "_data/paula_logo.png"
 
 RENDERING_METHODS = {
     "auto": AutoImage,
@@ -277,7 +277,7 @@ class PaulaScreen(Screen):
                 Image = RENDERING_METHODS["auto"]
                 image_widget = Image(TEST_IMAGE, id="cover-image")
                 image_widget.styles.width = "100%"
-                image_widget.styles.height = "30%"
+                image_widget.styles.height = "35%"
                 image_widget.styles.align = ("right", "top")
                 image_widget.styles.padding = 0
                 image_widget.styles.margin = 0

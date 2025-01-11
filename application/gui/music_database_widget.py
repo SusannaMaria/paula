@@ -276,8 +276,9 @@ class MusicDatabaseWidget(Container):
         for track_id, track_number, title in tracks:
             track_label = f"🎧 {track_number} - {title}"
             track_node = node.add(track_label, allow_expand=False)
-            track_node.track_id = track_id  # Store album_id in the node
+            track_node.track_id = track_id  # Store track_id in the node
         node.expand()
+        node.refresh()
 
     async def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         """Handle node selection in the tree."""
@@ -289,3 +290,5 @@ class MusicDatabaseWidget(Container):
             self.log_controller.write(f"Album Selected: {node.album_id}")
             # self.on_album_selected(node.album_id)
             self.expand_album_with_tracks(node)
+        else:
+            self.node_selected = node
