@@ -644,7 +644,7 @@ def run_similarity(do_normalize, input_query, do_train):
         ####################
         playlist_path = temp_dir / "paula_playlist.m3u"
         create_m3u_playlist(file_paths, playlist_path)
-        open_in_player(playlist_path)
+        # open_in_player(playlist_path)
         if do_train:
             prepare_feedback(cursor, origin_track)
 
@@ -736,7 +736,8 @@ def prepare_feedback(cursor, origin_track_id):
     track_feedback = display_tracks_and_collect_feedback(
         cursor, origin_track_id, similar_tracks_ids
     )
-
+    print(track_feedback)
+    exit()
     if len(track_feedback) == 11:
         trained_weights = curses.wrapper(
             train_feature_weights,

@@ -28,7 +28,7 @@
 
 import logging
 
-from database.database_helper import execute_query
+from database.database_helper import execute_query, get_cover_by_album_id
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import (
@@ -279,6 +279,10 @@ class MusicDatabaseWidget(Container):
             track_node.track_id = track_id  # Store track_id in the node
         node.expand()
         node.refresh()
+        cover_path = get_cover_by_album_id(self.cursor, album_id)
+        if cover_path:
+            image_widget = self.app.query_one("#cover-image")
+            image_widget.image = cover_path
 
     async def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         """Handle node selection in the tree."""

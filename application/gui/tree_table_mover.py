@@ -1,8 +1,28 @@
 from database.database_helper import get_tracks_by_id
 from similarity.similarity_main import get_similar_tracks_by_id
-from textual.containers import Container, Horizontal
-from textual.widgets import Button
+from textual.app import ComposeResult
+from textual.containers import Container, Grid, Horizontal
+from textual.screen import ModalScreen
+from textual.widgets import Button, Label
 from updater.updater_main import get_audio_path_from_track_id
+
+
+class TrainingConfirmScreen(ModalScreen[bool]):
+    """Screen with a dialog to quit."""
+
+    def compose(self) -> ComposeResult:
+        yield Grid(
+            Label("Are you sure you want to train with ratings?", id="question"),
+            Button("OK", variant="error", id="okay"),
+            Button("Cancel", variant="primary", id="cancel"),
+            id="dialog",
+        )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "okay":
+            self.dismiss(True)
+        else:
+            self.dismiss(False)
 
 
 class TreeTableMoverWidget(Container):
@@ -21,12 +41,19 @@ class TreeTableMoverWidget(Container):
             id="button-get-similar-tracks",
             classes="tree_table_button",
         )
+        self.button_train_similarity = Button(
+            "train similarity",
+            id="button-train-similarity",
+            classes="tree_table_button",
+            disabled=True,
+        )
         self.cursor = cursor
 
     async def on_mount(self, event):
         self.mount(self.horizontal_container_button)
         self.horizontal_container_button.mount(self.button_add_playlist)
         self.horizontal_container_button.mount(self.button_get_similar_tracks)
+        self.horizontal_container_button.mount(self.button_train_similarity)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
@@ -118,3 +145,17 @@ class TreeTableMoverWidget(Container):
                     sim_tracks[1],
                 )
             playlist_table.insert_tracks_finished()
+            self.button_train_similarity.disabled = False
+        if button_id == "button-train-similarity":
+            btn = self.app.query_one("#button-train-similarity")
+            if "train similarity" in btn.label:
+                btn.label = "stop training"
+                playlist_table.do_training()
+            elif "stop training" in btn.label:
+                btn.label = "train similarity"
+
+                def check_training(okay: bool | None) -> None:
+                    """Called when QuitScreen is dismissed."""
+                    playlist_table.stop_training(okay)
+
+                self.app.push_screen(TrainingConfirmScreen(), check_training)

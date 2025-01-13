@@ -29,10 +29,18 @@
 import time
 
 from database.database_helper import execute_query
+from textual.app import ComposeResult
+from textual.containers import Grid
 from textual.coordinate import Coordinate
-from textual.events import MouseDown
+from textual.events import Key, MouseDown
 from textual.message import Message
-from textual.widgets import DataTable
+from textual.screen import ModalScreen
+from textual.widgets import (
+    Button,
+    DataTable,
+    Input,
+    Label,
+)
 from updater.updater_main import get_audio_path_from_track_id
 
 from gui.log_controller import LogController
@@ -142,6 +150,26 @@ class PlaylistWidget(DataTable):
         self.last_click_time = 0  # Track the time of the last mouse click
         self.double_click_threshold = 0.3
         self.playlist = []
+        self.input = Input(placeholder="Edit value here")
+        self.in_training = False
+        self.selected_cell = None
+        self.cel_rate_coordinate = None
+
+    async def action_select_cell(self, cell):
+        self.selected_cell = cell
+        self.input.value = cell.value
+        self.input.visible = True
+        self.input.focus()
+
+    async def on_data_table_cell_selected(self, event: DataTable.CellSelected):
+        await self.action_select_cell(event)
+
+    async def on_key(self, event: Key):
+        if event.key == "enter" and self.input.visible:
+            # Update the DataTable with the new value
+            row, column = self.selected_cell.coordinate
+            self.table.update_cell(row, column, self.input.value)
+            self.input.visible = False
 
     def clear_table(self):
         self.clear()
@@ -217,20 +245,29 @@ class PlaylistWidget(DataTable):
         self.focus()
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected):
+        if not self.in_training:
+            self.post_message(self.PositionChanged(event.cursor_row))
+        else:
+            self.cel_rate_coordinate = Coordinate(column=8, row=event.cursor_row)
+            rate_cell_value = self.get_cell_at(self.cel_rate_coordinate)
+            index = int(rate_cell_value) + 3
+            self.app.query_one("#optionlist_rate").highlighted = index
 
-        self.post_message(self.PositionChanged(event.cursor_row))
+    def update_rating(self, value):
+        if self.cel_rate_coordinate:
+            self.update_cell_at(self.cel_rate_coordinate, str(value))
 
     def on_mouse_down(self, event: MouseDown):
         """Handle mouse events and detect double-clicks."""
+        if not self.in_training:
+            current_time = time.time()
+            time_since_last_click = current_time - self.last_click_time
 
-        current_time = time.time()
-        time_since_last_click = current_time - self.last_click_time
-
-        if event.button == 1:
-            if time_since_last_click <= self.double_click_threshold:
-                cursor_row = self.cursor_row
-                self.post_message(self.PositionChanged(cursor_row))
-            self.last_click_time = current_time
+            if event.button == 1:
+                if time_since_last_click <= self.double_click_threshold:
+                    cursor_row = self.cursor_row
+                    self.post_message(self.PositionChanged(cursor_row))
+                self.last_click_time = current_time
 
     def get_playlist(self):
         playlist = []
@@ -245,3 +282,18 @@ class PlaylistWidget(DataTable):
             if row.value == id:
                 return True
         return False
+
+    def do_training(self):
+        self.in_training = True
+        self.add_column("Rate", width=5, key="rate", default="0")
+        self.header.append(("Rate", 5))
+        self.app.query_one("#optionlist_rate").disabled = False
+
+    def stop_training(self, do_training):
+        self.in_training = False
+        self.app.query_one("#optionlist_rate").disabled = True
+        self.remove_column("rate")
+        del self.header[-1]
+        print(do_training)
+
+        # TODO: {23329: -1, 33902: 3, 10102: 3, 2961: 3, 33415: 3, 10112: 3, 23979: 3, 32719: 3, 6080: 3, 13971: 3, 22358: 3}

@@ -44,11 +44,8 @@ from player.audio_play_widget import (
 from textual import on
 from textual.app import ComposeResult, RenderableType, SystemCommand
 from textual.containers import Container, Grid, Horizontal, Vertical
-from textual.css.scalar import Scalar
-from textual.events import Resize
 from textual.screen import ModalScreen, Screen
-from textual.widget import Widget
-from textual.widgets import Button, Footer, Label, Log, Placeholder, Static
+from textual.widgets import Button, Footer, Label, Log, OptionList, Placeholder, Static
 from textual_image.widget import HalfcellImage, SixelImage, TGPImage, UnicodeImage
 from textual_image.widget import Image as AutoImage
 from textual_slider import Slider
@@ -162,6 +159,15 @@ class PaulaScreen(Screen):
         ("q", "request_quit", "Quit the app"),
         ("l", "show_log", "Show the log"),
     ]
+    RATING_INFO = """Rate the results from
+similarity database
+🔴 The lower the value,
+the less the track fit.
+🟡 0 means that the track
+fits so far.
+🟢 The higher the value,
+the higher the track fit.
+"""
 
     def __init__(self, log_controller: LogController) -> None:
         super().__init__()
@@ -309,7 +315,39 @@ class PaulaScreen(Screen):
                     id="border_bottom_audioplayer",
                     type="bottom",
                 )
+                yield BorderLabel(
+                    "Rate",
+                    classes="grey-label",
+                    id="border_top_optionlist_rate",
+                    type="top",
+                )
+                with Horizontal(id="train_screen_horizontal"):
+                    optionlist_rate = OptionList(
+                        "-3",
+                        "-2",
+                        "-1",
+                        "0",
+                        "+1",
+                        "+2",
+                        "+3",
+                        id="optionlist_rate",
+                        disabled=True,
+                    )
+                    optionlist_rate.highlighted = 3
+                    yield optionlist_rate
+                    yield Label(self.RATING_INFO, id="optionlist_rate_info")
+                yield BorderLabel(
+                    "",
+                    classes="grey-label",
+                    id="border_bottom_optionlist_rate",
+                    type="bottom",
+                )
         yield Footer()
+
+    def on_option_list_option_selected(self):
+        if self.app.query_one("#playlist_table").in_training:
+            value = int(self.app.query_one("#optionlist_rate").highlighted) - 3
+            self.app.query_one("#playlist_table").update_rating(value)
 
     def show_song_metadata(self, track_id):
         meta = ""
