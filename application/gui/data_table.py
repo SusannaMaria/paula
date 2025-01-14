@@ -29,6 +29,7 @@
 import time
 
 from database.database_helper import execute_query
+from similarity.train_weights import TrainScreen
 from textual.app import ComposeResult
 from textual.containers import Grid
 from textual.coordinate import Coordinate
@@ -290,10 +291,32 @@ class PlaylistWidget(DataTable):
         self.app.query_one("#optionlist_rate").disabled = False
 
     def stop_training(self, do_training):
-        self.in_training = False
-        self.app.query_one("#optionlist_rate").disabled = True
-        self.remove_column("rate")
-        del self.header[-1]
-        print(do_training)
+        if do_training:
+            origin_track = -1
+            self.in_training = False
+            # TODO: {23329: -1, 33902: 3, 10102: 3, 2961: 3, 33415: 3, 10112: 3, 23979: 3, 32719: 3, 6080: 3, 13971: 3, 22358: 3}
+            training_data = {}
 
-        # TODO: {23329: -1, 33902: 3, 10102: 3, 2961: 3, 33415: 3, 10112: 3, 23979: 3, 32719: 3, 6080: 3, 13971: 3, 22358: 3}
+            for row_index in range(self.row_count):
+                track_id = self.get_cell_at(Coordinate(column=0, row=row_index))
+                delta = self.get_cell_at(Coordinate(column=7, row=row_index))
+                if delta == 0.0:
+                    origin_track = track_id
+                    rate = -1
+                else:
+                    rate = self.get_cell_at(Coordinate(column=8, row=row_index))
+                training_data[track_id] = rate
+            self.app.query_one("#optionlist_rate").disabled = True
+            self.remove_column("rate")
+            del self.header[-1]
+            train_screen = TrainScreen()
+            self.app.push_screen(train_screen)
+            train_screen.train_feature_weights(
+                self.cursor,
+                self.similar_tracks,
+                training_data,
+                origin_track,
+                initial_learning_rate=0.01,
+                max_epochs=200,
+                patience=10,
+            )

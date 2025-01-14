@@ -130,6 +130,7 @@ class TreeTableMoverWidget(Container):
             playlist_table.clear_table()
             similar_tracks = get_similar_tracks_by_id(self.cursor, id)
             similar_tracks.insert(0, (id, 0.0))
+            playlist_table.similar_tracks = similar_tracks
             for sim_tracks in similar_tracks:
                 track = get_tracks_by_id(self.cursor, sim_tracks[0], "track_id")[0]
                 path = get_audio_path_from_track_id(self.cursor, track[0])

@@ -45,7 +45,15 @@ from textual import on
 from textual.app import ComposeResult, RenderableType, SystemCommand
 from textual.containers import Container, Grid, Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, Footer, Label, Log, OptionList, Placeholder, Static
+from textual.widgets import (
+    Button,
+    Footer,
+    Label,
+    Log,
+    OptionList,
+    Placeholder,
+    Static,
+)
 from textual_image.widget import HalfcellImage, SixelImage, TGPImage, UnicodeImage
 from textual_image.widget import Image as AutoImage
 from textual_slider import Slider

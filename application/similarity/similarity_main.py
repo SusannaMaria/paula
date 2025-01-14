@@ -51,7 +51,7 @@ from pyvis.network import Network
 from scipy.spatial.distance import cosine
 from search.search_main import create_search_query
 from similarity.similarity_feedback import display_tracks_and_collect_feedback
-from similarity.train_weights import train_feature_weights
+from similarity.train_weights import train_feature_weights_curses
 from utils.config_loader import load_config, update_weight_config
 
 init(autoreset=True)
@@ -736,11 +736,14 @@ def prepare_feedback(cursor, origin_track_id):
     track_feedback = display_tracks_and_collect_feedback(
         cursor, origin_track_id, similar_tracks_ids
     )
+
     print(track_feedback)
+    print(similar_tracks)
+    print(origin_track_id)
     exit()
     if len(track_feedback) == 11:
         trained_weights = curses.wrapper(
-            train_feature_weights,
+            train_feature_weights_curses,
             cursor,
             similar_tracks,
             track_feedback,

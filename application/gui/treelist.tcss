@@ -45,6 +45,10 @@ TrainingConfirmScreen {
     align: center middle;
 
 }
+TrainScreen {
+    align: center middle;
+
+}
 #optionlist_rate {
     width: 6;
     height: 9;
