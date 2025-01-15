@@ -31,6 +31,7 @@ import json
 
 import numpy as np
 from database.database_helper import execute_query
+from gui.screen_update import ScreenUpdate
 from textual.app import ComposeResult
 from textual.color import Gradient
 from textual.containers import Vertical
@@ -40,6 +41,7 @@ from utils.config_loader import load_config
 
 
 class TrainScreen(Screen):
+
     BINDINGS = [
         ("q", "do_close", "Close the logging"),
     ]
@@ -58,6 +60,19 @@ class TrainScreen(Screen):
         "#663399",
     )
 
+    def on_screen_update(self, message: ScreenUpdate):
+        if message.loss and message.progress:
+            self.progress_info.update(
+                f"Epoch {message.progress}, Loss: {message.loss:.4f}"
+            )
+
+        if message.total:
+            self.progressbar.update(total=message.total)
+        if message.progress:
+            self.progressbar.update(progress=message.progress)
+        if message.status:
+            self.status.update(message.status)
+
     def action_do_close(self) -> None:
         self.app.pop_screen()
 
@@ -74,96 +89,6 @@ class TrainScreen(Screen):
             yield self.progressbar
             yield self.progress_info
             yield self.status
-
-    def train_feature_weights(
-        self,
-        cursor,
-        similar_tracks,
-        feedback,
-        origin_track,
-        initial_learning_rate=0.01,
-        max_epochs=200,
-        patience=10,
-    ):
-        config = load_config()
-        similar_tracks_similarity = [x[1] for x in similar_tracks]
-        weights = [details["weight"] for feature, details in config["features"].items()]
-        origin_vector = get_feature_vector(cursor, origin_track)
-
-        # Display header
-        self.headline.label = "Training Phase: Press 'q' to quit at any time."
-        self.progressbar.update(
-            total=max_epochs,
-            progress=0,
-        )
-        best_loss = float("inf")
-        epochs_without_improvement = 0
-        learning_rate = initial_learning_rate
-        feedback_str = "Training completed! Press any key to exit."
-        for epoch in range(max_epochs):
-            total_loss = 0
-            for idx, (track_id, rating) in enumerate(feedback.items()):
-                if track_id == origin_track or rating == -1:
-                    continue  # Skip the origin track or invalid ratings
-
-                # Get the track feature vector
-                track_vector = get_feature_vector(cursor, track_id)
-
-                # Map rating to target similarity (-1 to 1)
-                target_similarity = map_rating_to_similarity(
-                    similar_tracks_similarity[idx - 1], rating
-                )
-
-                # Calculate weighted distance (Euclidean)
-                origin_vector = np.array(
-                    origin_vector
-                )  # Ensure origin_vector is a NumPy array
-                track_vector = np.array(track_vector)
-
-                weighted_diff = weights * (origin_vector - track_vector)
-
-                predicted_similarity = np.sqrt(
-                    np.sum(weighted_diff**2)
-                )  # Negative distance for similarity
-
-                # Compute error (difference between feedback rating and predicted similarity)
-                error = target_similarity - predicted_similarity
-
-                # Update weights (gradient descent)
-                gradient = -2 * error * (origin_vector - track_vector)
-                weights -= learning_rate * gradient
-
-                # Clip weights to prevent negative values
-                weights = np.clip(weights, 0.0, 2.0)
-
-                # Accumulate loss for monitoring
-                total_loss += error**2
-
-            # Check for early stopping
-            if total_loss < best_loss:
-                best_loss = total_loss
-                epochs_without_improvement = 0
-            else:
-                epochs_without_improvement += 1
-
-            # Monitor loss at each epoch
-            if epoch % 10 == 0:
-                self.progress_info.label = f"Epoch {epoch}, Loss: {total_loss:.4f}"
-
-                self.progressbar.progress(epoch)
-
-            # Stop training if no improvement for `patience` epochs
-            if epochs_without_improvement >= patience:
-                feedback_str = f"Stopping early at epoch {epoch}. No improvement in loss. Press any key to exit."
-                break
-
-            # Optionally decay learning rate if improvement slows
-            if epochs_without_improvement > patience // 2:
-                learning_rate *= 0.5  # Reduce learning rate
-                self.status.label = f"Reducing learning rate to {learning_rate:.6f}"
-
-        self.status.label = feedback_str
-        return weights.tolist()
 
 
 def map_rating_to_similarity(similarity, rating, adjustment_factor=0.2):

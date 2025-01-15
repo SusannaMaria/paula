@@ -26,10 +26,17 @@
     THE SOFTWARE.
 """
 
+import asyncio
 import time
+from concurrent.futures import ThreadPoolExecutor
 
+import numpy as np
 from database.database_helper import execute_query
-from similarity.train_weights import TrainScreen
+from similarity.train_weights import (
+    TrainScreen,
+    get_feature_vector,
+    map_rating_to_similarity,
+)
 from textual.app import ComposeResult
 from textual.containers import Grid
 from textual.coordinate import Coordinate
@@ -43,8 +50,10 @@ from textual.widgets import (
     Label,
 )
 from updater.updater_main import get_audio_path_from_track_id
+from utils.config_loader import load_config
 
 from gui.log_controller import LogController
+from gui.screen_update import ScreenUpdate
 
 
 class TrackTableWidget(DataTable):
@@ -311,12 +320,130 @@ class PlaylistWidget(DataTable):
             del self.header[-1]
             train_screen = TrainScreen()
             self.app.push_screen(train_screen)
-            train_screen.train_feature_weights(
-                self.cursor,
-                self.similar_tracks,
-                training_data,
-                origin_track,
-                initial_learning_rate=0.01,
-                max_epochs=200,
-                patience=10,
+            worker = TrainFeatureWeightsWorker(train_screen)
+            worker.init_training(self.cursor, training_data, origin_track)
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future1 = executor.submit(
+                    worker.train_feature_weights,
+                    self.similar_tracks,
+                    training_data,
+                    origin_track,
+                    initial_learning_rate=0.01,
+                    max_epochs=200,
+                    patience=10,
+                )
+                result1 = future1.result()
+
+
+class TrainFeatureWeightsWorker:
+    def __init__(self, screen: TrainScreen):
+        self.screen = screen
+
+    def init_training(self, cursor, feedback, origin_track):
+        feedback_vectors = {}
+        origin_vector = get_feature_vector(cursor, origin_track)
+        feedback_vectors[origin_track] = origin_vector
+        for idx, (track_id, rating) in enumerate(feedback.items()):
+            track_vector = get_feature_vector(cursor, track_id)
+            feedback_vectors[track_id] = track_vector
+        self.feedback_vectors = feedback_vectors
+
+    def train_feature_weights(
+        self,
+        similar_tracks,
+        feedback,
+        origin_track,
+        initial_learning_rate=0.01,
+        max_epochs=200,
+        patience=10,
+    ):
+        config = load_config()
+        similar_tracks_similarity = [x[1] for x in similar_tracks]
+        weights = [details["weight"] for feature, details in config["features"].items()]
+        origin_vector = self.feedback_vectors[origin_track]
+
+        # Display header
+        best_loss = float("inf")
+        epochs_without_improvement = 0
+        learning_rate = initial_learning_rate
+        self.screen.post_message(
+            ScreenUpdate(
+                total=max_epochs,
+                loss=best_loss,
+                progress=0,
+                status="Training Phase: Press 'q' to quit at any time.",
             )
+        )
+
+        feedback_str = "Training completed! Press any key to exit."
+
+        for epoch in range(max_epochs):
+            total_loss = 0
+            for idx, (track_id, rating) in enumerate(feedback.items()):
+                if track_id == origin_track or rating == -1:
+                    continue  # Skip the origin track or invalid ratings
+
+                # Get the track feature vector
+                track_vector = self.feedback_vectors[track_id]
+
+                # Map rating to target similarity (-1 to 1)
+                target_similarity = map_rating_to_similarity(
+                    similar_tracks_similarity[idx - 1], rating
+                )
+
+                # Calculate weighted distance (Euclidean)
+                origin_vector = np.array(
+                    origin_vector
+                )  # Ensure origin_vector is a NumPy array
+                track_vector = np.array(track_vector)
+
+                weighted_diff = weights * (origin_vector - track_vector)
+
+                predicted_similarity = np.sqrt(
+                    np.sum(weighted_diff**2)
+                )  # Negative distance for similarity
+
+                # Compute error (difference between feedback rating and predicted similarity)
+                error = target_similarity - predicted_similarity
+
+                # Update weights (gradient descent)
+                gradient = -2 * error * (origin_vector - track_vector)
+                weights -= learning_rate * gradient
+
+                # Clip weights to prevent negative values
+                weights = np.clip(weights, 0.0, 2.0)
+
+                # Accumulate loss for monitoring
+                total_loss += error**2
+
+            # Check for early stopping
+            if total_loss < best_loss:
+                best_loss = total_loss
+                epochs_without_improvement = 0
+            else:
+                epochs_without_improvement += 1
+
+            # Monitor loss at each epoch
+            if epoch % 10 == 0:
+                self.screen.post_message(ScreenUpdate(loss=total_loss, progress=epoch))
+
+            # Stop training if no improvement for `patience` epochs
+            if epochs_without_improvement >= patience:
+                feedback_str = f"Stopping early at epoch {epoch}. No improvement in loss. Press any key to exit."
+                break
+
+            # Optionally decay learning rate if improvement slows
+            if epochs_without_improvement > patience // 2:
+                learning_rate *= 0.5  # Reduce learning rate
+                self.screen.post_message(
+                    ScreenUpdate(
+                        status=f"Reducing learning rate to {learning_rate:.6f}"
+                    )
+                )
+
+        self.screen.post_message(
+            ScreenUpdate(
+                status=feedback_str,
+            )
+        )
+        return weights.tolist()
