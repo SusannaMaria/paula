@@ -331,13 +331,13 @@ the higher the track fit.
                 )
                 with Horizontal(id="train_screen_horizontal"):
                     optionlist_rate = OptionList(
-                        "-3",
-                        "-2",
-                        "-1",
-                        "0",
-                        "+1",
-                        "+2",
                         "+3",
+                        "+2",
+                        "+1",
+                        "0",
+                        "-1",
+                        "-2",
+                        "-3",
                         id="optionlist_rate",
                         disabled=True,
                     )
@@ -354,7 +354,8 @@ the higher the track fit.
 
     def on_option_list_option_selected(self):
         if self.app.query_one("#playlist_table").in_training:
-            value = int(self.app.query_one("#optionlist_rate").highlighted) - 3
+            sel_value = int(self.app.query_one("#optionlist_rate").highlighted)
+            value = 3 - sel_value
             self.app.query_one("#playlist_table").update_rating(value)
 
     def show_song_metadata(self, track_id):

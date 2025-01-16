@@ -32,6 +32,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 from database.database_helper import execute_query
+from similarity.similarity_main import build_ann_index
 from similarity.train_weights import (
     TrainScreen,
     get_feature_vector,
@@ -50,7 +51,7 @@ from textual.widgets import (
     Label,
 )
 from updater.updater_main import get_audio_path_from_track_id
-from utils.config_loader import load_config
+from utils.config_loader import load_config, update_weight_config
 
 from gui.log_controller import LogController
 from gui.screen_update import ScreenUpdate
@@ -164,6 +165,7 @@ class PlaylistWidget(DataTable):
         self.in_training = False
         self.selected_cell = None
         self.cel_rate_coordinate = None
+        self.new_weights = None
 
     async def action_select_cell(self, cell):
         self.selected_cell = cell
@@ -322,6 +324,7 @@ class PlaylistWidget(DataTable):
             self.app.push_screen(train_screen)
             worker = TrainFeatureWeightsWorker(train_screen)
             worker.init_training(self.cursor, training_data, origin_track)
+
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future1 = executor.submit(
                     worker.train_feature_weights,
@@ -329,15 +332,20 @@ class PlaylistWidget(DataTable):
                     training_data,
                     origin_track,
                     initial_learning_rate=0.01,
-                    max_epochs=200,
+                    max_epochs=400,
                     patience=10,
                 )
                 result1 = future1.result()
+                if worker.new_weights:
+                    update_weight_config(worker.new_weights)
+                    build_ann_index(self.cursor, worker.new_weights)
+                    train_screen.update_pretty_config()
 
 
 class TrainFeatureWeightsWorker:
     def __init__(self, screen: TrainScreen):
         self.screen = screen
+        self.new_weights = None
 
     def init_training(self, cursor, feedback, origin_track):
         feedback_vectors = {}
@@ -347,6 +355,7 @@ class TrainFeatureWeightsWorker:
             track_vector = get_feature_vector(cursor, track_id)
             feedback_vectors[track_id] = track_vector
         self.feedback_vectors = feedback_vectors
+        self.new_weights = None
 
     def train_feature_weights(
         self,
@@ -446,4 +455,4 @@ class TrainFeatureWeightsWorker:
                 status=feedback_str,
             )
         )
-        return weights.tolist()
+        self.new_weights = weights.tolist()

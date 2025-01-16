@@ -36,7 +36,7 @@ from textual.app import ComposeResult
 from textual.color import Gradient
 from textual.containers import Vertical
 from textual.screen import Screen
-from textual.widgets import Label, ProgressBar
+from textual.widgets import Label, Pretty, ProgressBar
 from utils.config_loader import load_config
 
 
@@ -82,6 +82,13 @@ class TrainScreen(Screen):
         self.progressbar = ProgressBar(id="progress_training", gradient=self.GRADIENT)
         self.progress_info = Label("Progress_info", id="progress_info")
         self.status = Label("Status", id="status_training")
+        config = load_config()
+        self.feature_config = Pretty(config["features"])
+        # weights = [details["weight"] for feature, details in config["features"].items()]
+
+    def update_pretty_config(self):
+        config = load_config()
+        self.feature_config.update(config["features"])
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -89,6 +96,7 @@ class TrainScreen(Screen):
             yield self.progressbar
             yield self.progress_info
             yield self.status
+            yield self.feature_config
 
 
 def map_rating_to_similarity(similarity, rating, adjustment_factor=0.2):

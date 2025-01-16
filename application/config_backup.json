@@ -16,7 +16,7 @@
     "annoy_index": {
         "path": "similarity/tracks.ann",
         "num_trees": 145,
-        "feature_dim": 23
+        "feature_dim": 29
     },
     "temp_dir": "c:/Users/susan/AppData/Local/Temp",
     "player": "foobar2000",
@@ -34,73 +34,91 @@
     "sounddevice": "Lautsprecher (Realtek(R) Audio)",
     "features": {
         "danceability": {
-            "weight": 0.8515879615091132
+            "weight": 1.0
         },
         "bpm": {
-            "weight": 0.5628280256364354
+            "weight": 1.0
         },
         "average_loudness": {
-            "weight": 0.9758966009242254
+            "weight": 1.0
         },
         "mood_happy": {
-            "weight": 0.7607825718505424
+            "weight": 1.0
         },
         "mood_party": {
-            "weight": 1.0845062673901467
+            "weight": 1.0
         },
         "genre_rock": {
-            "weight": 1.0600737601866463
+            "weight": 1.0
         },
         "genre_pop": {
-            "weight": 1.0222451251502789
+            "weight": 1.0
         },
         "genre_raphiphop": {
-            "weight": 0.9916778633223344
+            "weight": 1.0
         },
         "genre_jazz": {
-            "weight": 1.0215420603976626
+            "weight": 1.0
         },
         "genre_electronic": {
-            "weight": 0.8891698837821032
+            "weight": 1.0
         },
         "dynamic_complexity": {
-            "weight": 0.991777904901114
+            "weight": 1.0
         },
         "voice_instrumental": {
-            "weight": 1.1266380923966324
+            "weight": 1.0
         },
         "female": {
-            "weight": 0.31745117184668764
+            "weight": 1.0
         },
         "genre_alternative": {
-            "weight": 1.3159691670104778
+            "weight": 1.0
         },
         "mood_relaxed": {
-            "weight": 0.5691645149661316
+            "weight": 1.0
         },
         "mood_sad": {
-            "weight": 1.017103011612757
+            "weight": 1.0
         },
         "mood_mirex_cluster1": {
-            "weight": 0.9655860674235351
+            "weight": 1.0
         },
         "mood_mirex_cluster2": {
-            "weight": 1.0870522328022176
+            "weight": 1.0
         },
         "mood_mirex_cluster3": {
-            "weight": 1.0770323210619803
+            "weight": 1.0
         },
         "mood_mirex_cluster4": {
-            "weight": 0.5133945277494056
+            "weight": 1.0
         },
         "mood_mirex_cluster5": {
-            "weight": 1.3289043759648584
+            "weight": 1.0
         },
         "timbre": {
-            "weight": 1.0278914216645796
+            "weight": 1.0
         },
         "tonal_atonal": {
-            "weight": 0.6608458640486727
+            "weight": 1.0
+        },
+        "genre_blues": {
+            "weight": 1.0
+        },
+        "genre_electronic_ambient": {
+            "weight": 1.0
+        },
+        "genre_electronic_dnb": {
+            "weight": 1.0
+        },
+        "genre_electronic_house": {
+            "weight": 1.0
+        },
+        "genre_electronic_techno": {
+            "weight": 1.0
+        },
+        "genre_electronic_trance": {
+            "weight": 1.0
         }
     }
 }
