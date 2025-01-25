@@ -169,12 +169,12 @@ class PaulaScreen(Screen):
     ]
     RATING_INFO = """Rate the results from
 similarity database
-🔴 The lower the value,
-the less the track fit.
-🟡 0 means that the track
-fits so far.
 🟢 The higher the value,
 the higher the track fit.
+🟡 0 means that the track
+fits so far.
+🔴 The lower the value,
+the less the track fit.
 """
 
     def __init__(self, log_controller: LogController) -> None:
