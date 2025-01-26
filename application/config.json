@@ -102,5 +102,40 @@
         "tonal_atonal": {
             "weight": 0.6608458640486727
         }
+    },
+    "visualizer": {
+        "low_cutoff": 80,
+        "high_cutoff": 10000,
+        "noise_threshold": 0.01,
+        "max_saturation": 0.8,
+        "bar_characters": {
+            "block": "█",
+            "circle": "●",
+            "square": "■",
+            "triangle": "▲",
+            "shaded": "▓",
+            "target": "◎",
+            "circle_empty": "◍"
+        },
+        "ground_color": [
+            32,
+            32,
+            32
+        ],
+        "low_color": [
+            255,
+            0,
+            0
+        ],
+        "mid_color": [
+            0,
+            255,
+            0
+        ],
+        "high_color": [
+            0,
+            0,
+            255
+        ]
     }
 }
