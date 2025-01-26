@@ -1,7 +1,7 @@
 import time
+from pathlib import Path
 
 import numpy as np
-from config_loader import load_config
 from pydub import AudioSegment
 from scipy.fft import rfft, rfftfreq
 from scipy.signal.windows import hann
@@ -10,6 +10,7 @@ from textual.color import Color
 from textual.containers import Horizontal
 from textual.widget import Widget
 from textual.widgets import Footer, Label
+from utils.config_loader import load_config
 
 
 class FFTBar(Label):
@@ -36,13 +37,13 @@ class FFTBar(Label):
         self.current_height = magnitude
         normalized_height = int(magnitude * self.max_height)
 
-        if magnitude < 0.1:
-            self.styles.color = Color(10, 10, 10)
-        else:
-            # Update the bar's text and apply color
-            self.styles.color = self.calculate_color(
-                magnitude, index
-            )  # Inline style for dynamic coloring
+        # if magnitude < 0.1:
+        #     self.styles.color = Color(10, 10, 10)
+        # else:
+        # Update the bar's text and apply color
+        self.styles.color = self.calculate_color(
+            magnitude, index
+        )  # Inline style for dynamic coloring
         self.update(
             "\n" * (self.max_height - normalized_height)
             + (self.bar_char + "\n") * (normalized_height + 1)
@@ -160,7 +161,6 @@ class AudioVisualizer(Widget):
 
     def __init__(
         self,
-        audio_file,
         chunk_size,
         rate,
         bar_count,
@@ -168,7 +168,7 @@ class AudioVisualizer(Widget):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.audio_file = audio_file
+        self.audio_file = None
         self.update_interval = 0.01
         self.chunk_size = chunk_size
         self.fft_data = np.zeros(chunk_size // 2)
@@ -179,7 +179,6 @@ class AudioVisualizer(Widget):
         self.height = height
         self.sample_rate = None
         self.audio_length = None
-        self.current_position = 0
         self.rate = rate
         self.debug_label = False
         config = load_config()
@@ -189,6 +188,7 @@ class AudioVisualizer(Widget):
         self.low_cutoff = visualizer_config["low_cutoff"]
         self.high_cutoff = visualizer_config["high_cutoff"]
         self.visualizer_stats_label = None
+        self.pause = False
 
     def compose(self):
         """Compose the layout of the app."""
@@ -202,13 +202,23 @@ class AudioVisualizer(Widget):
             self.visualizer_stats_label = Label("", id="visualizer_stats_label")
             yield self.visualizer_stats_label
 
-    def on_mount(self):
-        """Start processing the audio file and visualization timer."""
-        self.load_audio_file()
+    def visualize(self, audio_file=None):
+        if audio_file:
+            audio_file_path = Path(audio_file)
+            if audio_file_path.exists():
+                self.audio_file = audio_file
+            self.load_audio_file()
+
+    def pause_resume(self, state):
+        self.pause = state
 
     def load_audio_file(self):
         """Load the audio file and prepare it for processing."""
         try:
+            audio_file_path = Path(self.audio_file)
+
+            if not audio_file_path.exists():
+                return
             # Load audio using pydub
             audio = AudioSegment.from_file(self.audio_file)
 
@@ -233,6 +243,7 @@ class AudioVisualizer(Widget):
             self.audio_length = len(self.audio_data) / self.sample_rate
             self.chunk_size / self.sample_rate
             self.update_interval = self.chunk_size / self.sample_rate
+            self.current_position = 0
             self.restart_timer()
             # Resample to match the desired rate if necessary
 
@@ -251,12 +262,18 @@ class AudioVisualizer(Widget):
         except:
             pass
 
+    def set_position(self, pos_seconds):
+        self.current_position = pos_seconds * self.sample_rate
+
     def update_fft(self):
         start_time = time.time()
         """Update FFT data and refresh the visualization."""
         if self.audio_data is None or self.current_position + self.chunk_size > len(
             self.audio_data
         ):
+            return
+
+        if self.pause:
             return
 
         now = time.time()
@@ -391,18 +408,29 @@ class AudioVisualizer(Widget):
 class MyTextualApp(App):
     """Main Textual app integrating the audio visualizer."""
 
-    def compose(self):
-        yield AudioVisualizer(
-            audio_file="c:/temp/test2.mp3",
+    def __init__(
+        self,
+        audio_file,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.visualizer = AudioVisualizer(
             chunk_size=8096,
             rate=44100,
             bar_count=50,
             height=7,
         )
+        self.audio_file = audio_file
+
+    def compose(self):
+        yield self.visualizer
         yield Footer()  # Add a footer for key bindings
+
+    def on_mount(self):
+        self.visualizer.visualize(self.audio_file)
 
 
 # Run the application
 if __name__ == "__main__":
-    app = MyTextualApp()
+    app = MyTextualApp("c:/temp/test2.mp3")
     app.run()

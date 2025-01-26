@@ -60,6 +60,7 @@ from textual_slider import Slider
 
 from gui.data_table import PlaylistWidget, TrackTableWidget
 from gui.events import CustomClickEvent
+from gui.fft_widget import AudioVisualizer
 from gui.log_controller import LogController
 from gui.music_database_widget import MusicDatabaseWidget
 from gui.tree_table_mover import TreeTableMoverWidget
@@ -291,7 +292,7 @@ the less the track fit.
                 Image = RENDERING_METHODS["auto"]
                 image_widget = Image(TEST_IMAGE, id="cover-image")
                 image_widget.styles.width = "100%"
-                image_widget.styles.height = "35%"
+                image_widget.styles.height = "24%"
                 image_widget.styles.align = ("right", "top")
                 image_widget.styles.padding = 0
                 image_widget.styles.margin = 0
@@ -348,6 +349,25 @@ the less the track fit.
                     "",
                     classes="grey-label",
                     id="border_bottom_optionlist_rate",
+                    type="bottom",
+                )
+                yield BorderLabel(
+                    "Visualizer",
+                    classes="grey-label",
+                    id="border_top_visualizer",
+                    type="top",
+                )
+                yield AudioVisualizer(
+                    chunk_size=8096,
+                    rate=44100,
+                    bar_count=34,
+                    height=5,
+                    id="audio_visualizer",
+                )
+                yield BorderLabel(
+                    "",
+                    classes="grey-label",
+                    id="border_bottom_visualizer",
                     type="bottom",
                 )
         yield Footer()

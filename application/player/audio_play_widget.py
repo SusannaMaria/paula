@@ -203,6 +203,7 @@ class AudioPlayerWidget(Container):
             else:
                 pygame.mixer.music.load(self.playlist[self.current_song][1])
             pygame.mixer.music.play()
+
             self.song_length = self.get_song_length()
             self.start_progress_timer()
             self.update_components = True
@@ -211,12 +212,18 @@ class AudioPlayerWidget(Container):
             pb_s.disabled = False
             self.is_paused = False
 
+            visualizer = self.app.query_one("#audio_visualizer")
+            visualizer.visualize(self.playlist[self.current_song][1])
+            visualizer.pause_resume(False)
+
         # elif "pause" in pb_p.get_mode():
         elif "pause" in pb_p.label:
             pygame.mixer.music.pause()
             self.is_paused = True
             # pb_p.set_mode_idx("resume")
             pb_p.label = "resume"
+            visualizer = self.app.query_one("#audio_visualizer")
+            visualizer.pause_resume(True)
 
         # elif "resume" in pb_p.get_mode():
         elif "resume" in pb_p.label:
@@ -224,6 +231,8 @@ class AudioPlayerWidget(Container):
             self.is_paused = False
             # pb_p.set_mode_idx("pause")
             pb_p.label = "pause"
+            visualizer = self.app.query_one("#audio_visualizer")
+            visualizer.pause_resume(False)
 
     def remove_widgets(self):
         for widget in self.horizontal_container_slider.walk_children():
@@ -248,6 +257,8 @@ class AudioPlayerWidget(Container):
         pb_s.disabled = True
         self.is_paused = False
         self.slider_progress.value = 0
+        visualizer = self.app.query_one("#audio_visualizer")
+        visualizer.pause_resume(True)
 
     def get_song_length(self):
         """Get the song length in seconds."""
@@ -288,6 +299,8 @@ class AudioPlayerWidget(Container):
                 self.elapsed_time = new_pos_seconds
 
                 pygame.mixer.music.set_pos(new_pos_seconds)
+                visualizer = self.app.query_one("#audio_visualizer")
+                visualizer.set_position(new_pos_seconds)
                 if self.is_paused:
                     self.update_time(new_pos_seconds, self.song_length)
 

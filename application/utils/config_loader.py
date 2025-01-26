@@ -36,7 +36,7 @@ CONFIG_FILE = "config.json"
 
 def load_config():
     try:
-        with open(CONFIG_FILE, "r") as file:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as file:
             config = json.load(file)
             return config
     except FileNotFoundError:
@@ -48,7 +48,7 @@ def load_config():
 
 
 def update_weight_config(changed_weights):
-    with open(CONFIG_FILE, "r") as file:
+    with open(CONFIG_FILE, "r", encoding="utf-8") as file:
         config = json.load(file)
 
     feature_names = list(config["features"].keys())
