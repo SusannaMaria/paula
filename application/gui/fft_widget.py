@@ -1,6 +1,7 @@
 import time
 
 import numpy as np
+from config_loader import load_config
 from pydub import AudioSegment
 from scipy.fft import rfft, rfftfreq
 from scipy.signal.windows import hann
@@ -9,7 +10,6 @@ from textual.color import Color
 from textual.containers import Horizontal
 from textual.widget import Widget
 from textual.widgets import Footer, Label
-from utils.config_loader import load_config
 
 
 class FFTBar(Label):
@@ -24,6 +24,7 @@ class FFTBar(Label):
         self.mid_color = config["visualizer"]["mid_color"]
         self.high_color = config["visualizer"]["high_color"]
         self.ground_color = config["visualizer"]["ground_color"]
+        self.max_saturation = config["visualizer"]["max_saturation"]
         self.current_height = -1
         self.bar_count = bar_count
         self.max_height = max_height
@@ -180,13 +181,14 @@ class AudioVisualizer(Widget):
         self.audio_length = None
         self.current_position = 0
         self.rate = rate
-
+        self.debug_label = False
         config = load_config()
         visualizer_config = config["visualizer"]
         self.noise_threshold = visualizer_config["noise_threshold"]
         self.max_saturation = visualizer_config["max_saturation"]
         self.low_cutoff = visualizer_config["low_cutoff"]
         self.high_cutoff = visualizer_config["high_cutoff"]
+        self.visualizer_stats_label = None
 
     def compose(self):
         """Compose the layout of the app."""
@@ -196,7 +198,9 @@ class AudioVisualizer(Widget):
             bar_count=self.bar_count,
             chunk_size=self.chunk_size,
         )
-        yield Label("dskhkfh", id="stats_label")
+        if self.debug_label:
+            self.visualizer_stats_label = Label("", id="visualizer_stats_label")
+            yield self.visualizer_stats_label
 
     def on_mount(self):
         """Start processing the audio file and visualization timer."""
@@ -242,6 +246,10 @@ class AudioVisualizer(Widget):
         self.timer = self.set_interval(
             self.update_interval, self.update_fft
         )  # Start a new timer
+        try:
+            self.visualizer_stats_label = self.app.query_one("#visualizer_stats_label")
+        except:
+            pass
 
     def update_fft(self):
         start_time = time.time()
@@ -327,20 +335,19 @@ class AudioVisualizer(Widget):
         fft_widget.chunk_size = self.chunk_size
         fft_widget.update_bars()
 
-        stats_label = self.query_one("#stats_label")
-        current_time_seconds = self.current_position / self.sample_rate
-        stats = []
-        sleepy = time.time() - (self.start_time + current_time_seconds)
-        stats.append(f"LOW_CUTOFF:{self.low_cutoff}")
-        stats.append(f"HIGH_CUTOFF:{self.high_cutoff}")
-        stats.append(f"Timer interval:{self.update_interval:.2f}")
-        stats.append(f"Chunk size:{self.chunk_size}")
-        stats.append(f"Update compute time: {time.time() - start_time:.3f}s")
-        stats.append(f"Update visual time: {fft_widget.diff_time:.3f}s")
-        stats.append(f"Position: {current_time_seconds:.2f}")
-        stats.append(f"Delta: {sleepy:.2f}")
-
-        stats_label.update("\n".join(stats))
+        if self.visualizer_stats_label:
+            current_time_seconds = self.current_position / self.sample_rate
+            stats = []
+            sleepy = time.time() - (self.start_time + current_time_seconds)
+            stats.append(f"LOW_CUTOFF:{self.low_cutoff}")
+            stats.append(f"HIGH_CUTOFF:{self.high_cutoff}")
+            stats.append(f"Timer interval:{self.update_interval:.2f}")
+            stats.append(f"Chunk size:{self.chunk_size}")
+            stats.append(f"Update compute time: {time.time() - start_time:.3f}s")
+            stats.append(f"Update visual time: {fft_widget.diff_time:.3f}s")
+            stats.append(f"Position: {current_time_seconds:.2f}")
+            stats.append(f"Delta: {sleepy:.2f}")
+            self.visualizer_stats_label.update("\n".join(stats))
 
     def on_key(self, event):
         """Handle key presses for adjusting scanning speed."""
