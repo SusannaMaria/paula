@@ -187,6 +187,7 @@ class AudioVisualizer(Widget):
         self.max_saturation = visualizer_config["max_saturation"]
         self.low_cutoff = visualizer_config["low_cutoff"]
         self.high_cutoff = visualizer_config["high_cutoff"]
+        self.scale = visualizer_config["scale"]
         self.visualizer_stats_label = None
         self.pause = False
 
@@ -243,7 +244,7 @@ class AudioVisualizer(Widget):
             self.audio_length = len(self.audio_data) / self.sample_rate
             self.chunk_size / self.sample_rate
             self.update_interval = self.chunk_size / self.sample_rate
-            self.current_position = 0
+            self.current_position = int(self.sample_rate * 0.2)
             self.restart_timer()
             # Resample to match the desired rate if necessary
 
@@ -328,7 +329,14 @@ class AudioVisualizer(Widget):
         aggregated_bands[aggregated_bands < self.noise_threshold] = 0
 
         # Apply logarithmic scaling to aggregated bands
-        aggregated_bands = np.sqrt(aggregated_bands)
+
+        # Apply scaling based on user selection
+        if self.scale == "log":
+            aggregated_bands = np.log1p(aggregated_bands)  # Logarithmic scaling
+        elif self.scale == "sqrt":
+            aggregated_bands = np.sqrt(aggregated_bands)
+        else:
+            aggregated_bands = aggregated_bands
 
         # Normalize the aggregated values
         max_val = np.max(aggregated_bands) or 1  # Prevent division by zero

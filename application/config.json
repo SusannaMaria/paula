@@ -104,6 +104,7 @@
         }
     },
     "visualizer": {
+        "scale": "log",
         "low_cutoff": 80,
         "high_cutoff": 10000,
         "noise_threshold": 0.01,
