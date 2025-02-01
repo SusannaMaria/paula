@@ -1,3 +1,35 @@
+[project]
+name = "paula-application"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "annoy==1.17.3",
+    "colorama==0.4.6",
+    "comtypes==1.4.9",
+    "docker_py==1.10.6",
+    "mutagen==1.47.0",
+    "networkx==3.4.2",
+    "numpy==2.2.2",
+    "Pillow==11.1.0",
+    "pycaw==20240210",
+    "pydub==0.25.1",
+    "pygame==2.6.1",
+    "pyvis==0.3.2",
+    "Requests==2.32.3",
+    "scipy==1.15.1",
+    "sounddevice==0.5.1",
+    "textual==1.0.0",
+    "textual_image==0.7.0",
+    "textual_slider==0.2.0",
+    "hatch",
+]
+
+[project.scripts]
+start = "application.main:main"
+
 [tool.ruff]
 line-length = 120
-ignore = ["E501"]    # Example: Ignore line-length errors
+ignore = ["E501"] # Example: Ignore line-length errors
+
+[tool.hatch.envs.default.scripts]
+"reinstall" = ["uv pip uninstall .", "uv pip install -e ."]

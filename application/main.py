@@ -30,10 +30,10 @@
 
 import sys
 
-from database.genre import collect_genres
-from gui.treelist import MusicDatabaseApp
-from similarity.similarity_main import run_similarity
-from updater.updater_audio_files import update_database_with_audiofiles
+from application.database.genre import collect_genres
+from application.gui.treelist import MusicDatabaseApp
+from application.similarity.similarity_main import run_similarity
+from application.updater.updater_audio_files import update_database_with_audiofiles
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
@@ -41,17 +41,17 @@ sys.stderr.reconfigure(encoding="utf-8")
 import argparse
 import logging
 
-from cover.cover_main import create_mosaic, get_album_covers
-from database.database_helper import (
+from application.cover.cover_main import create_mosaic, get_album_covers
+from application.database.database_helper import (
     backup_database,
     clean_tables,
     close_connection,
     restore_database,
 )
-from importer.importer_main import run_import
-from search.search_main import run_search
-from updater.updater_main import extract_features, run_updater
-from utils.logging_config import setup_logging
+from application.importer.importer_main import run_import
+from application.search.search_main import run_search
+from application.updater.updater_main import extract_features, run_updater
+from application.utils.logging_config import setup_logging
 
 
 def main():
@@ -165,6 +165,11 @@ def main():
         )
 
         args = parser.parse_args()
+
+        # Set a default subcommand if none is provided
+        if not args.command:
+            args.command = "gui"  # Default to 'gui' subcommand
+
         setup_logging(args.log.upper())
         logger = logging.getLogger(__name__)
         logger.info("Application started")

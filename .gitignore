@@ -170,3 +170,4 @@ application/database/paula.sqlite-journal
 application/backups/paula_backup_*.sqlite
 application/similarity/tracks.ann
 application/similarity/track_similarity_graph.html
+uv.lock
