@@ -29,18 +29,6 @@
 import logging
 from typing import Iterable
 
-from database.database_helper import (
-    close_connection,
-    create_cursor,
-    get_cover_by_album_id,
-    get_track_by_id,
-    get_tracks_between_by_genre,
-)
-from player.audio_play_widget import (
-    AudioPlayerWidget,
-    get_system_volume,
-    set_system_volume,
-)
 from textual import on
 from textual.app import ComposeResult, RenderableType, SystemCommand
 from textual.containers import Container, Grid, Horizontal, Vertical
@@ -58,14 +46,26 @@ from textual_image.widget import HalfcellImage, SixelImage, TGPImage, UnicodeIma
 from textual_image.widget import Image as AutoImage
 from textual_slider import Slider
 
-from gui.data_table import PlaylistWidget, TrackTableWidget
-from gui.events import CustomClickEvent
-from gui.fft_widget import AudioVisualizer
-from gui.log_controller import LogController
-from gui.music_database_widget import MusicDatabaseWidget
-from gui.tree_table_mover import TreeTableMoverWidget
+from application.database.database_helper import (
+    close_connection,
+    create_cursor,
+    get_cover_by_album_id,
+    get_track_by_id,
+    get_tracks_between_by_genre,
+)
+from application.gui.data_table import PlaylistWidget, TrackTableWidget
+from application.gui.events import CustomClickEvent
+from application.gui.fft_widget import AudioVisualizer
+from application.gui.log_controller import LogController
+from application.gui.music_database_widget import MusicDatabaseWidget
+from application.gui.tree_table_mover import TreeTableMoverWidget
+from application.player.audio_play_widget import (
+    AudioPlayerWidget,
+    get_system_volume,
+    set_system_volume,
+)
 
-TEST_IMAGE = "_data/paula_logo.png"
+TEST_IMAGE = "application/_data/paula_logo.png"
 
 RENDERING_METHODS = {
     "auto": AutoImage,

@@ -39,7 +39,10 @@ from pathlib import Path
 import numpy as np
 from annoy import AnnoyIndex
 from colorama import Fore, Style, init
-from database.database_helper import (
+from pyvis.network import Network
+from scipy.spatial.distance import cosine
+
+from application.database.database_helper import (
     close_connection,
     close_cursor,
     commit,
@@ -47,12 +50,12 @@ from database.database_helper import (
     execute_query,
     get_track_by_id,
 )
-from pyvis.network import Network
-from scipy.spatial.distance import cosine
-from search.search_main import create_search_query
-from similarity.similarity_feedback import display_tracks_and_collect_feedback
-from similarity.train_weights import train_feature_weights_curses
-from utils.config_loader import load_config, update_weight_config
+from application.search.search_main import create_search_query
+from application.similarity.similarity_feedback import (
+    display_tracks_and_collect_feedback,
+)
+from application.similarity.train_weights import train_feature_weights_curses
+from application.utils.config_loader import load_config, update_weight_config
 
 init(autoreset=True)
 

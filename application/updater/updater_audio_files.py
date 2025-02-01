@@ -30,7 +30,12 @@ import logging
 import os
 from datetime import datetime
 
-from database.database_helper import (
+from mutagen.flac import FLAC
+from mutagen.id3 import ID3, ID3TimeStamp
+from mutagen.mp3 import MP3
+from mutagen.mp4 import MP4
+
+from application.database.database_helper import (
     close_connection,
     close_cursor,
     commit,
@@ -40,11 +45,7 @@ from database.database_helper import (
     insert_artist,
     insert_track,
 )
-from importer.importer_main import get_tag
-from mutagen.flac import FLAC
-from mutagen.id3 import ID3, ID3TimeStamp
-from mutagen.mp3 import MP3
-from mutagen.mp4 import MP4
+from application.importer.importer_main import get_tag
 
 logger = logging.getLogger(__name__)
 

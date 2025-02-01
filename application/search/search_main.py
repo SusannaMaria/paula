@@ -29,8 +29,8 @@
 import logging
 import re
 
-from database.database_helper import execute_query_print_out
-from utils.config_loader import load_config
+from application.database.database_helper import execute_query_print_out
+from application.utils.config_loader import load_config
 
 logger = logging.getLogger(__name__)
 # Load configuration

@@ -30,16 +30,17 @@ import imghdr
 import logging
 import os
 
-from database.database_helper import (
+from mutagen.flac import FLAC, Picture
+from mutagen.id3 import APIC, ID3
+from mutagen.mp3 import MP3
+from PIL import Image
+
+from application.database.database_helper import (
     close_connection,
     close_cursor,
     create_cursor,
     execute_query,
 )
-from mutagen.flac import FLAC, Picture
-from mutagen.id3 import APIC, ID3
-from mutagen.mp3 import MP3
-from PIL import Image
 
 logger = logging.getLogger(__name__)
 

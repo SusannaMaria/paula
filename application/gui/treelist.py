@@ -31,8 +31,8 @@ import logging
 import pygame
 from textual.app import App
 
-from gui.log_controller import LogController
-from gui.paula_screen import PaulaScreen
+from application.gui.log_controller import LogController
+from application.gui.paula_screen import PaulaScreen
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"

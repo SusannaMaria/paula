@@ -39,7 +39,8 @@ from functools import partial
 from pathlib import Path
 
 import requests
-from database.database_helper import (
+
+from application.database.database_helper import (
     close_connection,
     close_cursor,
     commit,
@@ -48,9 +49,8 @@ from database.database_helper import (
     update_album_tags,
     update_track_tags,
 )
-from utils.config_loader import load_config
-
-from updater.feature_extractor import run_essentia_extractor
+from application.updater.feature_extractor import run_essentia_extractor
+from application.utils.config_loader import load_config
 
 logger = logging.getLogger(__name__)
 

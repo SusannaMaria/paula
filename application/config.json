@@ -1,6 +1,6 @@
 {
     "database": {
-        "path": "database/paula.sqlite",
+        "path": "application/database/paula.sqlite",
         "dbname": "paula"
     },
     "application": {

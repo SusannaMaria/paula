@@ -38,7 +38,7 @@ from textual.widgets import Label, OptionList, Sparkline
 from textual.widgets.option_list import Option
 from textual_slider import Slider
 
-from gui.events import CustomClickEvent
+from application.gui.events import CustomClickEvent
 
 
 class MySlider(Slider):

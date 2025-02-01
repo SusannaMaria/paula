@@ -31,13 +31,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
-from database.database_helper import execute_query
-from similarity.similarity_main import build_ann_index
-from similarity.train_weights import (
-    TrainScreen,
-    get_feature_vector,
-    map_rating_to_similarity,
-)
 from textual.app import ComposeResult
 from textual.containers import Grid
 from textual.coordinate import Coordinate
@@ -50,11 +43,18 @@ from textual.widgets import (
     Input,
     Label,
 )
-from updater.updater_main import get_audio_path_from_track_id
-from utils.config_loader import load_config, update_weight_config
 
-from gui.log_controller import LogController
-from gui.screen_update import ScreenUpdate
+from application.database.database_helper import execute_query
+from application.gui.log_controller import LogController
+from application.gui.screen_update import ScreenUpdate
+from application.similarity.similarity_main import build_ann_index
+from application.similarity.train_weights import (
+    TrainScreen,
+    get_feature_vector,
+    map_rating_to_similarity,
+)
+from application.updater.updater_main import get_audio_path_from_track_id
+from application.utils.config_loader import load_config, update_weight_config
 
 
 class TrackTableWidget(DataTable):

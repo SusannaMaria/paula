@@ -43,3 +43,8 @@ Um sie aufzulösen fehlt es uns am Mut
 
 Heißkalt - Nichts weh 
 https://www.youtube.com/watch?v=hZCTPwLRZhA
+
+```
+hatch run reinstall
+uv run start
+```

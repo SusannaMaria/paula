@@ -34,7 +34,6 @@ from pathlib import Path
 import mutagen
 import pygame
 from comtypes import CLSCTX_ALL
-from gui.image_button import CustomButton
 from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from pydub import AudioSegment
 from textual import on
@@ -45,7 +44,8 @@ from textual.timer import Timer
 from textual.widgets import Button, Static
 from textual_slider import Slider
 
-from player.device import set_sounddevice
+from application.gui.image_button import CustomButton
+from application.player.device import set_sounddevice
 
 # Constants
 DEVICE_SPEAKERS = 0  # Master audio device

@@ -62,7 +62,7 @@ def main():
     try:
         parser = argparse.ArgumentParser(description="Music Database Manager")
         parser.add_argument("--log", default="INFO", help="Set the logging level")
-        subparsers = parser.add_subparsers(dest="command", required=True)
+        subparsers = parser.add_subparsers(dest="command", required=False)
 
         subparsers.add_parser("mosaic", help="Creat mosaic from cover images.")
         subparsers.add_parser("gui", help="Use the gui.")

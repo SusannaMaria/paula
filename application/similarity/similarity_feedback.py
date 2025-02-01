@@ -28,7 +28,7 @@
 
 import curses
 
-from database.database_helper import get_track_by_id
+from application.database.database_helper import get_track_by_id
 
 
 def display_tracks_and_collect_feedback(cursor, from_track_id, tracks):

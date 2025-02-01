@@ -28,7 +28,6 @@
 
 import logging
 
-from database.database_helper import execute_query, get_cover_by_album_id
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import (
@@ -41,8 +40,9 @@ from textual.widgets import (
     Tree,
 )
 
-from gui.genre_slider import GenreSliders
-from gui.log_controller import LogController
+from application.database.database_helper import execute_query, get_cover_by_album_id
+from application.gui.genre_slider import GenreSliders
+from application.gui.log_controller import LogController
 
 
 class MusicDatabaseWidget(Container):

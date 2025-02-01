@@ -30,11 +30,11 @@ import random
 import sqlite3
 from statistics import mean
 
-from textual.app import App, ComposeResult, RenderResult
-from textual.containers import Container, Horizontal, Vertical
-from textual.widget import Widget
-from textual.widgets import Label, OptionList, Sparkline, Static
-from textual.widgets.option_list import Option
+from application.textual.app import App, ComposeResult, RenderResult
+from application.textual.containers import Container, Horizontal, Vertical
+from application.textual.widget import Widget
+from application.textual.widgets import Label, OptionList, Sparkline, Static
+from application.textual.widgets.option_list import Option
 
 features = [
     "danceability",

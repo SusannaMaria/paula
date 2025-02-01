@@ -10,7 +10,8 @@ from textual.color import Color
 from textual.containers import Horizontal
 from textual.widget import Widget
 from textual.widgets import Footer, Label
-from utils.config_loader import load_config
+
+from application.utils.config_loader import load_config
 
 
 class FFTBar(Label):

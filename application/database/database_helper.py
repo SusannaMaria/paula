@@ -34,7 +34,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from utils.config_loader import load_config
+from application.utils.config_loader import load_config
 
 logger = logging.getLogger(__name__)
 conn = None

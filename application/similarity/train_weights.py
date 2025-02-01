@@ -30,14 +30,15 @@ import curses
 import json
 
 import numpy as np
-from database.database_helper import execute_query
-from gui.screen_update import ScreenUpdate
 from textual.app import ComposeResult
 from textual.color import Gradient
 from textual.containers import Vertical
 from textual.screen import Screen
 from textual.widgets import Label, Pretty, ProgressBar
-from utils.config_loader import load_config
+
+from application.database.database_helper import execute_query
+from application.gui.screen_update import ScreenUpdate
+from application.utils.config_loader import load_config
 
 
 class TrainScreen(Screen):

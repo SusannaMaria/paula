@@ -1,10 +1,11 @@
-from database.database_helper import get_tracks_by_id
-from similarity.similarity_main import get_similar_tracks_by_id
 from textual.app import ComposeResult
 from textual.containers import Container, Grid, Horizontal
 from textual.screen import ModalScreen
 from textual.widgets import Button, Label
-from updater.updater_main import get_audio_path_from_track_id
+
+from application.database.database_helper import get_tracks_by_id
+from application.similarity.similarity_main import get_similar_tracks_by_id
+from application.updater.updater_main import get_audio_path_from_track_id
 
 
 class TrainingConfirmScreen(ModalScreen[bool]):

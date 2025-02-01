@@ -30,7 +30,8 @@ import time
 
 import pygame
 import sounddevice as sd
-from utils.config_loader import load_config
+
+from application.utils.config_loader import load_config
 
 
 def get_sounddevices():

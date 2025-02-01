@@ -31,7 +31,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-CONFIG_FILE = "config.json"
+CONFIG_FILE = "application/config.json"
 
 
 def load_config():

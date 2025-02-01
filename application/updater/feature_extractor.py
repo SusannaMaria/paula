@@ -31,7 +31,8 @@ import logging
 import os
 
 import docker
-from database.database_helper import execute_query
+
+from application.database.database_helper import execute_query
 
 logger = logging.getLogger(__name__)
 
